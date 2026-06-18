@@ -1,11 +1,4 @@
-"""
-nnPCApy — non-negative sparse PCA (nsprcomp) ported from R, plus the
-companion AUCell and ssGSEA scoring methods used by the EMTscore
-reference pipeline.
-
-Public API:
-    from nnpcapy import nsprcomp
-"""
+"""nnPCApy: Python port of R's nsprcomp (non-negative sparse PCA)."""
 
 from .nsprcomp import nsprcomp
 

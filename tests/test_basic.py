@@ -1,34 +1,28 @@
-"""Smoke tests so CI / pip install verification have something to run."""
+"""Basic checks for nsprcomp."""
 
 import numpy as np
-import pytest
 
 from nnpcapy import nsprcomp
 
 
-def test_nsprcomp_basic_shape():
-    """A 50x20 random matrix returns the expected score/loading shapes."""
+def test_shape():
     rng = np.random.default_rng(42)
     X = rng.standard_normal((50, 20))
     out = nsprcomp(X, ncomp=3, nneg=True, center=True, scale_=False)
-    assert out["x"].shape == (50, 3),       "score matrix should be (n_obs, ncomp)"
-    assert out["rotation"].shape == (20, 3), "rotation should be (n_features, ncomp)"
+    assert out["x"].shape == (50, 3)
+    assert out["rotation"].shape == (20, 3)
 
 
-def test_nsprcomp_pc1_nonneg():
-    """With nneg=True the first PC's loadings must be >= 0.
-
-    (Higher PCs go through Gram-Schmidt orthogonalisation against earlier
-    components, which can introduce small negatives — same behaviour as R.)
-    """
+def test_pc1_nonneg():
+    # PC1 has no orthogonalisation against earlier components, so
+    # the non-negativity constraint should hold on its loadings.
     rng = np.random.default_rng(0)
     X = rng.standard_normal((40, 12))
     out = nsprcomp(X, ncomp=2, nneg=True, center=True, scale_=False)
-    assert (out["rotation"][:, 0] >= 0).all(), "PC1 non-negative constraint violated"
+    assert (out["rotation"][:, 0] >= 0).all()
 
 
-def test_nsprcomp_min_features():
-    """ncomp can't exceed the number of features."""
+def test_min_features():
     rng = np.random.default_rng(1)
     X = rng.standard_normal((30, 3))
     out = nsprcomp(X, ncomp=3, nneg=True, center=True, scale_=False)

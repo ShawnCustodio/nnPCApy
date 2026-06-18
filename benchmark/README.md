@@ -1,28 +1,27 @@
-# Benchmark — R vs Python nnPCA
+# Benchmark
 
-Side-by-side timing harness for `nsprcomp` (R, original) vs `nnpcapy.nsprcomp`
-(this package). Methodology, full instructions, and headline numbers are in
-the [top-level README](../README.md#benchmark--python-vs-r).
+R-vs-Python timing comparison for `nsprcomp`. Methodology and headline
+numbers are in the [top-level README](../README.md#benchmark).
 
-## Files
+Files:
 
-| File | What it is |
-|---|---|
-| `datasets.py` | Builds 47 cached input matrices from real EMT signature + expression data |
-| `bench_python.py` | Times nnpcapy.nsprcomp 705 times (47 × 3 ncomps × 5 trials) |
-| `bench_r.R` | R-side mirror; same inputs, same algorithm, R `nsprcomp` |
-| `compare.py` | Merges both timing CSVs, writes `results/summary.csv`, emits plots |
-| `results/*.csv` | Committed timing results from the most recent run |
-| `plots/*.png` | Committed comparison plots |
+- `datasets.py` builds 47 cached `.npy` input matrices from the EMT
+  signature + expression data.
+- `bench_python.py` times `nnpcapy.nsprcomp` on each input.
+- `bench_r.R` does the same on the R side using the original `nsprcomp`
+  package.
+- `compare.py` merges both timing CSVs into `results/summary.csv` and
+  writes the comparison plots.
 
-## Quick run
+Run order:
 
-```bash
-python datasets.py            # ~5s — builds _inputs/*.npy
-python bench_python.py        # ~3 min — writes results/python_timings.csv
-# In RStudio: open bench_r.R, click Source — ~8 min, writes results/r_timings.csv
-python compare.py             # ~2s — writes summary.csv + 3 PNGs in plots/
+```
+python datasets.py
+python bench_python.py
+# In RStudio: open bench_r.R and Source it
+python compare.py
 ```
 
-The cached `_inputs/` folder is gitignored (~130 MB) because it's
-regenerable from the source CSVs.
+`_inputs/` is gitignored - it's a ~130 MB cache that `datasets.py`
+regenerates from scratch. `results/` and `plots/` are committed so the
+numbers from the most recent run are visible without re-running.

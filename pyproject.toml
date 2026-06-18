@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name            = "nnpcapy"
 version         = "0.1.0"
-description     = "Pure-Python port of R's nsprcomp (non-negative sparse PCA), with benchmark against the original R implementation."
+description     = "Python port of R's nsprcomp (non-negative sparse PCA), with a timing benchmark vs the original."
 readme          = "README.md"
 license         = { file = "LICENSE" }
 requires-python = ">=3.10"
