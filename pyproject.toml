@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name            = "nnpcapy"
+version         = "0.1.0"
+description     = "Pure-Python port of R's nsprcomp (non-negative sparse PCA), with benchmark against the original R implementation."
+readme          = "README.md"
+license         = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors         = [
+    { name = "Shawn Custodio", email = "shawncustodiomail@gmail.com" },
+]
+keywords        = ["nnpca", "nsprcomp", "sparse-pca", "non-negative", "gene-signature", "emt"]
+classifiers     = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies    = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+]
+
+[project.optional-dependencies]
+benchmark = [
+    "matplotlib>=3.8",
+    "psutil>=5.9",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.5",
+]
+
+[project.urls]
+Source = "https://github.com/ShawnCustodio/nnPCApy"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nnpcapy"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/nnpcapy",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]

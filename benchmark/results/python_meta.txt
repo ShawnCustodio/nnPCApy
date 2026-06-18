@@ -1,0 +1,6 @@
+total_chunks_run: 6
+n_trials_per_cell: 5
+ncomps: [1, 2, 3]
+python: 3.10.12
+numpy:  2.2.6
+notes: bench was run in 6 chunks due to a 45s subprocess limit; results are equivalent.

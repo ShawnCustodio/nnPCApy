@@ -1,0 +1,6 @@
+total_elapsed_seconds: 489.020
+n_matrices: 47
+n_trials_per_cell: 5
+ncomps: 1,2,3
+R version: 4.5.2
+nsprcomp version: 0.5.1.2
