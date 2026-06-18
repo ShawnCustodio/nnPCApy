@@ -88,7 +88,7 @@ def main():
     rows = []
     total_calls = len(manifest) * len(ncomps_use) * N_TRIALS
     print("Running %d nsprcomp calls (%d matrices x %d ncomps x %d trials) filter=%s"
-          % (total_calls, len(manifest), len(NCOMPS), N_TRIALS, filt), flush=True)
+          % (total_calls, len(manifest), len(ncomps_use), N_TRIALS, filt), flush=True)
 
     grand_t0 = time.perf_counter()
     for _, row in manifest.iterrows():

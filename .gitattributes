@@ -1,0 +1,20 @@
+# Normalise line endings: store as LF in the repo, check out platform-native.
+# Without this, OneDrive on Windows flips LF <-> CRLF on every sync and creates
+# phantom "modified" entries in git status.
+* text=auto eol=lf
+
+# Files that must stay binary:
+*.png binary
+*.npy binary
+*.pdf binary
+*.zip binary
+*.jpg binary
+*.jpeg binary
+
+# R / Python source files: enforce LF specifically
+*.py  text eol=lf
+*.R   text eol=lf
+*.md  text eol=lf
+*.toml text eol=lf
+*.csv text eol=lf
+*.txt text eol=lf
