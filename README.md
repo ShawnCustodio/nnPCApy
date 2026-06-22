@@ -1,17 +1,29 @@
 # nnPCApy
 
-Python port of R's `nsprcomp` (non-negative sparse PCA), with a benchmark
-comparing it against the original R implementation.
+Python port of R's `nsprcomp` (non-negative sparse PCA) and the EMT
+scoring pipeline built on top of it, plus a benchmark comparing the
+Python kernel against the original R implementation.
 
-This was originally the nnPCA kernel inside an EMT scoring pipeline
-([EMTScorePy](https://github.com/ShawnCustodio/EMTScorePy)). I pulled it
-out so it can be installed and benchmarked on its own. The companion
-methods (`aucell`, `ssGSEA`) are included because the EMTscore family
-uses them alongside `nsprcomp`.
+This repo started as the nnPCA kernel inside an EMT scoring analysis I
+was doing. It now holds both pieces: the kernel as an installable
+library, and the full EMTscore-style application that uses it.
+
+## Layout
+
+```
+src/nnpcapy/    # installable library: nsprcomp + helpers
+emtscore/       # EMT scoring application: scoring + plotting + GMM
+utility/        # data path resolution, Cook 2020 raw-data loaders
+data/           # bundled signatures, GMT files, bulk + Cook SC data
+notebooks/      # two demo notebooks that reproduce the EMTscore vignette
+benchmark/      # R-vs-Python timing harness + committed results/plots
+tests/          # smoke tests for nsprcomp
+EMTScorePy.html # rendered final report from the notebooks
+```
 
 ## Install
 
-Local dev:
+For local development:
 
 ```
 git clone https://github.com/ShawnCustodio/nnPCApy.git
@@ -19,15 +31,11 @@ cd nnPCApy
 pip install -e ".[benchmark,dev]"
 ```
 
-Direct from GitHub:
+Once that's done, both `from nnpcapy import nsprcomp` (the library)
+and `from emtscore import workflow as wf` (the application notebooks)
+will work.
 
-```
-pip install git+https://github.com/ShawnCustodio/nnPCApy.git
-```
-
-(For the private repo you'll need an access token.)
-
-## Use
+## Use the library
 
 ```python
 import numpy as np
@@ -40,32 +48,24 @@ scores   = out["x"]         # (n_samples, ncomp)
 loadings = out["rotation"]  # (n_features, ncomp), non-negative on PC1
 ```
 
-The call signature mirrors R's `nsprcomp::nsprcomp(...)`.
+Call signature mirrors R's `nsprcomp::nsprcomp(...)`.
 
-## Benchmark
+## Run the notebooks
 
-`benchmark/` runs `nsprcomp` 705 times on each side (47 input matrices x
-3 component counts x 5 trials) using the same cached `.npy` inputs, so
-the comparison is implementation-only and excludes I/O / preprocessing.
+```
+jupyter notebook notebooks/EMTscore_automated.ipynb
+```
 
-Numbers from the latest run on my hardware:
+`EMTscore_automated.ipynb` is the slim version that calls into
+`emtscore/workflow.py` for every step. `EMTscore_full_analysis.ipynb`
+is the longer cell-by-cell exploration. Both reproduce every figure in
+`EMTScorePy.html`.
 
-- Single gene set (Panchy E/M signatures, 12 cells of the sweep): median
-  4.9x faster in Python, max 13x. The biggest wins are at `ncomp=2` on
-  the single-cell datasets.
-- Multi gene set (filtered C2 pathway sweep, 67 cells): median 1.2x
-  faster. 24 of those cells are losses where R is faster on very small
-  pathways, especially at `ncomp=3`.
-- Total benchmark wall time: R 489s, Python 189s (2.6x).
-- Heap on single-cell calls: median ~6x less in Python. The bulk
-  comparison is dominated by R's session baseline so I excluded it from
-  the headline.
+## Run the benchmark
 
-Plots are in `benchmark/plots/`. `speedup_single.png` is the most
-informative; `multi_total.png` shows the C2 sweep totals and
-`memory_ratio.png` is the heap comparison.
-
-To reproduce:
+`benchmark/` runs `nsprcomp` 705 times per side (47 matrices x 3
+ncomps x 5 trials) on byte-identical `.npy` inputs, so the comparison
+is implementation-only.
 
 ```
 python benchmark/datasets.py        # build cached inputs, ~5s
@@ -74,32 +74,46 @@ python benchmark/bench_python.py    # ~3 min
 python benchmark/compare.py         # merge + emit plots
 ```
 
-`datasets.py` looks for the EMT data in this order:
+Latest numbers (my hardware):
 
-1. `$NNPCAPY_DATA_DIR` if set,
-2. `../EMTScorePy/data/` (sibling checkout - the default while EMTScorePy is the development driver),
-3. `./data/` if you've put the data inside the repo.
+- Single gene set (Panchy E/M signatures): median 4.9x faster in Python,
+  max 13x. Biggest wins at ncomp=2 on the single-cell datasets.
+- Multi gene set (filtered C2 sweep): median 1.2x. R wins on 24 small
+  pathways out of 108, mostly at ncomp=3.
+- Total wall time: R 489s vs Python 189s.
+- Memory on single-cell calls: median ~6x less heap in Python. Bulk
+  heap comparison is dominated by R's session baseline, so I exclude
+  it from the headline.
 
-If none exist, set `NNPCAPY_DATA_DIR` to a folder containing
-`geneExp.csv`, `Panchy_et_al_{E,M}_signature.csv`, `filtered.c2.gmt`,
-and `cook2020/A549_*_em_expr.csv`.
+Plots are in `benchmark/plots/`. `speedup_single.png` is the most
+informative.
 
-## What's in `src/nnpcapy/`
+## What's in each subfolder
 
-`nsprcomp.py` is the core EM-style solver, a direct port of the R
-algorithm: alternate least-squares fit, non-negativity projection,
-deflate against earlier components, normalise. `nnpca.py` adds GMT
-parsing and per-pathway helpers used by EMTscore. `aucell.py` and
-`ssGSEA.py` are the other two scoring methods.
+`src/nnpcapy/` is the installable library: `nsprcomp.py` is the EM
+solver (NumPy port of the R algorithm), `nnpca.py` adds GMT parsing
+and per-pathway helpers, `aucell.py` and `ssGSEA.py` are the two other
+scoring methods the EMTscore family uses.
 
-Plotting, GMM clustering, and the single-cell loaders live in
-[EMTScorePy](https://github.com/ShawnCustodio/EMTScorePy) - this repo
-deliberately stays at the kernel level.
+`emtscore/` is the application layer that uses the library: scoring
+orchestration (`scoring.py`, `pipeline.py`), single-cell loaders
+(`sc.py`, including `load_cook_adatas`), GMM clustering in E-M space,
+pathway correlation, and three plotting modules (`plots_em.py`,
+`plots_heatmap.py`, `plots_cook.py`) that reproduce the R vignette's
+figures.
+
+`utility/` has the Cook 2020 raw-data loader and the data-path
+resolution helper used by the application.
+
+`data/` bundles the Panchy E and M signatures, the bulk geneExp matrix
+(120 cell lines x ~16k genes), the Cook 2020 single-cell em_expr CSVs
+for A549 under EGF, TGF-beta, and TNF perturbations, the C2 EMT-related
+pathway GMT, and the stemness / senescence TSV signatures.
 
 ## Acknowledgments
 
 `nsprcomp` is by Sigg and Buhmann (2008); this is a NumPy translation
 of their R implementation. The EMTscore R package the work was
-benchmarked against is at https://github.com/wenmm/EMTscore.
+developed against is at https://github.com/wenmm/EMTscore.
 
 MIT license.
