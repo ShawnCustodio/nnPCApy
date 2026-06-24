@@ -12,12 +12,13 @@
 # Usage from terminal: Rscript bench_r.R
 
 suppressMessages({
+  .libPaths(c("D:/R/library", .libPaths()))
   library(nsprcomp)
   library(RcppCNPy)
 })
 
 # Point this at the local nnPCApy/benchmark folder.
-BENCH    <- "C:/Users/shawn/Downloads/Github/nnPCApy/benchmark"
+BENCH    <- "D:/work/nnPCApy/benchmark"
 INPUTS   <- file.path(BENCH, "_inputs")
 RESULTS  <- file.path(BENCH, "results")
 dir.create(RESULTS, showWarnings = FALSE, recursive = TRUE)

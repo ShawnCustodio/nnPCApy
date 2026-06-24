@@ -133,4 +133,4 @@ def main() -> None:
     ax.set_xticks(np.arange(len(sub)))
     ax.set_xticklabels(sub["label"], rotation=30, ha="right")
     ax.set_ylabel("Speedup (R median time / Python median time)")
-    ax.set_title("nnPCA speedup: Python (nsprcomp port) vs R (nsprcomp)
+    ax.set_title("nnPCA speedup: Python (nsprcomp port) vs R (nsprcomp)")
