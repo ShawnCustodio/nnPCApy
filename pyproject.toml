@@ -50,6 +50,7 @@ benchmark = [
 dev = [
     "pytest>=7.0",
     "ruff>=0.5",
+    "build>=1.0",   # `python -m build` for wheel/sdist
 ]
 
 [project.urls]
