@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from sklearn.decomposition import PCA
 
 
 # ============================================================
@@ -88,6 +87,7 @@ def run_nnPCA(
     # Build latent EMT axis 
     # --------------------------------------------------------
     if score_mat.shape[1] > 1:
+        from sklearn.decomposition import PCA  # heavy optional dep; imported lazily
         pca = PCA(n_components=dimension)
         emt_axis = pca.fit_transform(score_mat)
 

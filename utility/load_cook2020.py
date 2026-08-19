@@ -18,8 +18,6 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 import numpy as np
-import scipy.sparse as sp
-import anndata as ad
 
 
 # ── Dataset registry ──────────────────────────────────────────────────────────
@@ -96,6 +94,8 @@ def load_cook2020(dataset: str, data_dir: str | Path | None = None) -> ad.AnnDat
     data_dir : str or Path, optional
         Directory containing the CSV files. If None, auto-resolved.
     """
+    import anndata as ad          # heavy optional dep; imported lazily
+    import scipy.sparse as sp      # only needed to build the sparse matrix here
     root = resolve_cook_dir(data_dir)
     _check_files(root, dataset)
 

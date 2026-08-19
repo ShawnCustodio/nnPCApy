@@ -23,17 +23,40 @@ EMTScorePy.html # rendered final report from the notebooks
 
 ## Install
 
-For local development:
+The core solver is dependency-light (NumPy only):
 
 ```
-git clone https://github.com/ShawnCustodio/nnPCApy.git
-cd nnPCApy
-pip install -e ".[benchmark,dev]"
+pip install nnpcapy          # PyPI (once released), or:
+pip install -e .             # from a clone -- just the nsprcomp solver
 ```
 
-Once that's done, both `from nnpcapy import nsprcomp` (the library)
-and `from emtscore import workflow as wf` (the application notebooks)
-will work.
+For the full toolkit (gene-set scoring, plotting, single-cell loaders):
+
+```
+pip install "nnpcapy[full]"          # PyPI (once released), or from a clone:
+pip install -e ".[full,dev]"
+```
+
+The wheel ships the `emtscore` application layer alongside the `nnpcapy` solver,
+so `pip install "nnpcapy[viz]"` alone is enough to score signatures and make the
+Figure-3E-style plots on your own data — no checkout required.
+
+Extras: `app` (pandas/scipy for scoring), `viz` (matplotlib/seaborn/scipy for
+plots), `sc` (anndata/scikit-learn for single-cell), `full` = all three.
+
+`from nnpcapy import nsprcomp` (core solver) and `import emtscore` (application +
+plotting) both work. `import emtscore` is light -- the heavy dependencies load
+only when a function that needs them is called.
+
+### Bundled vs. checkout data
+
+The wheel bundles the *small* data files (the E/M signatures, cell annotation,
+and the `.gmt`/`.tsv` gene-set files), so signature-based scoring works straight
+after install. The *large* files — bulk expression (`geneExp.csv`), the full
+MSigDB C2 `.gmt`, and the Cook et al. 2020 single-cell matrices — are **not**
+shipped; they come with a source checkout (under `data/`) or via a directory you
+point `$NNPCAPY_DATA` at. Functions that need them raise a clear error explaining
+where to get them.
 
 ## Use the library
 
@@ -49,6 +72,31 @@ loadings = out["rotation"]  # (n_features, ncomp), non-negative on PC1
 ```
 
 Call signature mirrors R's `nsprcomp::nsprcomp(...)`.
+
+## Score gene signatures and plot (single-cell)
+
+The `emtscore` layer wraps the solver with a small, notebook-friendly API for
+scoring a signature per cell and producing the Figure-3E-style plots in a couple
+of calls (needs the `viz` extra: `pip install "nnpcapy[viz]"`).
+
+```python
+import emtscore as emt   # light import; plotting deps load lazily
+
+# counts: DataFrame (cells x genes), raw counts; pt: pseudotime; time: labels
+sE, _,     _   = emt.score_signature(counts, E_genes, sign_ref=-pt)          # epithelial
+sM, load_M, gM = emt.score_signature(counts, M_genes, ncomp=2, sign_ref=pt)  # mesenchymal
+
+scores = pd.DataFrame({"E score": sE[:, 0], "M score": sM[:, 0], "time": time})
+fig, ax = emt.plot_em_scatter(scores, "E score", "M score",
+                              group="time", ci=True)          # density + bootstrap-CI centroids
+
+pc = emt.top_loading_genes(load_M, gM, n=5)                   # top genes of M PC1 / PC2
+fig2 = emt.plot_signature_heatmap(counts, {"M PC1": pc[0], "M PC2": pc[1]},
+                                  cell_group=time, group_order=order)
+```
+
+`score_signature` does total-library log-CPM + per-gene z-score + non-negative
+sparse PCA; `sign_ref` orients each component (e.g. to pseudotime).
 
 ## Run the notebooks
 
@@ -74,16 +122,28 @@ python benchmark/bench_python.py    # ~3 min
 python benchmark/compare.py         # merge + emit plots
 ```
 
-Latest numbers (my hardware):
+Latest numbers (shipping Python vs R nsprcomp 0.5.1-2; 47 matrices x 3
+ncomps = 141 calls per side). All figures trace to
+`benchmark/results/summary.csv`.
 
-- Single gene set (Panchy E/M signatures): median 4.9x faster in Python,
-  max 13x. Biggest wins at ncomp=2 on the single-cell datasets.
-- Multi gene set (filtered C2 sweep): median 1.2x. R wins on 24 small
-  pathways out of 108, mostly at ncomp=3.
-- Total wall time: R 489s vs Python 189s.
-- Memory on single-cell calls: median ~6x less heap in Python. Bulk
-  heap comparison is dominated by R's session baseline, so I exclude
-  it from the headline.
+- Total wall (sum of median call times): R 54.2s vs Python 2.8s -> ~19x.
+- Per-call speedup: median 8.3x, max 49x.
+- Single gene sets (Panchy E/M, 105-184 genes): median ~19x; biggest
+  wins at ncomp >= 2 on the single-cell datasets.
+- Multi gene sets (filtered C2 pathways, 8-93 genes): median ~8x.
+- By data type: single-cell (n ~3.5-13k cells) median ~12x; bulk
+  (n=120 cell lines) ~1.6x -- the covariance optimization needs large n
+  to pay off (see benchmark/README.md and Fig 2A).
+- Memory: Python uses less heap throughout -- ~4-6x on single-cell
+  single gene sets, ~22x on single-cell pathways, ~78x on bulk
+  (median ~26x overall).
+
+Honest framing of the speedup vs R: most of it is NumPy/BLAS
+vectorization; the single algorithmic change beyond R is iterating the
+EM on a precomputed covariance C = X^T X (O(n*d) -> O(d^2) per
+iteration). Parameter defaults and the two-pass renormalization are R's
+own -- reproduced, not novel. (Earlier versions of this file quoted
+intermediate-stage benchmark numbers; those have been corrected.)
 
 Plots are in `benchmark/plots/`. `speedup_single.png` is the most
 informative.

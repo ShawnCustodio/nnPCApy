@@ -22,7 +22,6 @@ Key optimizations vs the naive port
   (additional 2-3× speedup; total ~7× over naive, ~19× faster than R).
 """
 import numpy as np
-import pandas as pd
 
 
 def _empca_cov(C, Q, nneg, em_tol, em_maxiter):

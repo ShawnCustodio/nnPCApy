@@ -14,8 +14,13 @@ dist/
 *.egg-info/
 .eggs/
 
-# Cached benchmark inputs (regenerable: `python benchmark/datasets.py`)
-benchmark/_inputs/
+# Large / regenerable data (location-independent so it survives the paper/ reorg)
+**/_inputs/                 # synthetic benchmark inputs (regenerate: datasets.py / sc_ablation.py)
+**/cook_full/*_counts.mtx   # raw Cook matrix — shared as the compact *_counts.npz instead
+
+# Sandbox / local junk
+_sandbox_r/
+.pytest_cache/
 
 # Editor / IDE
 .vscode/
@@ -26,5 +31,43 @@ benchmark/_inputs/
 .DS_Store
 Thumbs.db
 
+# Editor / OS / office lock + swap junk (anywhere)
+*~
+*.un~
+*.tmp
+.~lock.*#
+~$*
+.fuse_hidden*
+
 # Logs
 *.log
+
+# ---- paper/: publish only the reproduction path (benchmark + Fig 3E) ----
+# Manuscript drafts, figure-compiling scripts, exploratory analyses, regenerable
+# data (inputs/plots/results checkpoints) and the raw Cook .mtx all stay LOCAL —
+# only the files re-included below are tracked. See README "Bundled vs. checkout".
+/paper/*
+!/paper/benchmark/
+!/paper/panelE/
+
+/paper/benchmark/*
+!/paper/benchmark/bench_python.py
+!/paper/benchmark/bench_r.R
+!/paper/benchmark/datasets.py
+!/paper/benchmark/compare.py
+!/paper/benchmark/README.md
+!/paper/benchmark/results/
+/paper/benchmark/results/*
+!/paper/benchmark/results/summary.csv
+
+/paper/panelE/*
+!/paper/panelE/sc_full.py
+!/paper/panelE/fig3E_showcase.py
+!/paper/panelE/pack_cook_data.py
+!/paper/panelE/fetch_cook_A549_TGFB1.R
+!/paper/panelE/cook_full/
+/paper/panelE/cook_full/*
+!/paper/panelE/cook_full/A549_TGFB1_counts.npz
+!/paper/panelE/cook_full/A549_TGFB1_genes.txt
+!/paper/panelE/cook_full/A549_TGFB1_cells.txt
+!/paper/panelE/cook_full/A549_TGFB1_meta.csv

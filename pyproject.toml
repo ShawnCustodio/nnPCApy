@@ -23,13 +23,26 @@ classifiers     = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+# Core solver (nnpcapy.nsprcomp) is NumPy-only. Everything else is opt-in.
 dependencies    = [
     "numpy>=1.24",
-    "pandas>=2.0",
-    "scikit-learn>=1.3",
 ]
 
 [project.optional-dependencies]
+app = [            # emtscore application layer: gene-set scoring & analysis
+    "pandas>=2.0",
+    "scipy>=1.10",
+]
+viz = [            # publication-quality plotting (e.g. Figure 3E)
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "scipy>=1.10",   # gaussian_kde for the scatter density contours
+]
+sc = [             # single-cell loaders / GMM / PCA collapse
+    "anndata>=0.10",
+    "scikit-learn>=1.3",
+]
+full = ["nnpcapy[app,viz,sc]"]
 benchmark = [
     "matplotlib>=3.8",
     "psutil>=5.9",
@@ -43,11 +56,38 @@ dev = [
 Source = "https://github.com/ShawnCustodio/nnPCApy"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/nnpcapy"]
+packages = ["src/nnpcapy", "emtscore", "utility"]
+
+# Ship the *small* data files (signatures, annotation, gene-set .gmt/.tsv) inside
+# the wheel under nnpcapy/_bundled_data/. The large files (geneExp.csv, the full
+# C2 .gmt, and the Cook single-cell CSVs) are intentionally left out — they come
+# with a source checkout or via $NNPCAPY_DATA. See utility/data_paths.py.
+[tool.hatch.build.targets.wheel.force-include]
+"data/Panchy_et_al_E_signature.csv"         = "nnpcapy/_bundled_data/Panchy_et_al_E_signature.csv"
+"data/Panchy_et_al_M_signature.csv"         = "nnpcapy/_bundled_data/Panchy_et_al_M_signature.csv"
+"data/cell_annotation_file.csv"             = "nnpcapy/_bundled_data/cell_annotation_file.csv"
+"data/EM_signature.gmt"                     = "nnpcapy/_bundled_data/EM_signature.gmt"
+"data/filtered.c2.gmt"                      = "nnpcapy/_bundled_data/filtered.c2.gmt"
+"data/degeneracy_demo.gmt"                  = "nnpcapy/_bundled_data/degeneracy_demo.gmt"
+"data/TianLab_collected_EMT_signatures.gmt" = "nnpcapy/_bundled_data/TianLab_collected_EMT_signatures.gmt"
+"data/stemsig.tsv"                          = "nnpcapy/_bundled_data/stemsig.tsv"
+"data/cellular_senescence_sig.tsv"          = "nnpcapy/_bundled_data/cellular_senescence_sig.tsv"
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/nnpcapy",
+    "emtscore",
+    "utility",
+    # small data only (same set the wheel bundles); large files ship with a checkout
+    "data/Panchy_et_al_E_signature.csv",
+    "data/Panchy_et_al_M_signature.csv",
+    "data/cell_annotation_file.csv",
+    "data/EM_signature.gmt",
+    "data/filtered.c2.gmt",
+    "data/degeneracy_demo.gmt",
+    "data/TianLab_collected_EMT_signatures.gmt",
+    "data/stemsig.tsv",
+    "data/cellular_senescence_sig.tsv",
     "README.md",
     "LICENSE",
     "pyproject.toml",
