@@ -29,6 +29,10 @@ import sc_full  # noqa: E402
 REPO = next(_p for _p in Path(__file__).resolve().parents if (_p / "pyproject.toml").exists())
 DATA = REPO / "data"
 RES = Path(__file__).resolve().parent / "results"
+PLOTS = Path(__file__).resolve().parent / "plots"
+# results/ and plots/ are gitignored, so create them on a fresh checkout
+RES.mkdir(parents=True, exist_ok=True)
+PLOTS.mkdir(parents=True, exist_ok=True)
 DS = "A549_TGFB1"
 TIME_ORDER = ["0d", "8h", "1d", "3d", "7d"]
 CAP, B_BOOT = 130, 300
@@ -222,8 +226,7 @@ def main():
                           left=0.06, right=0.955, top=0.92, bottom=0.12)
     draw_panelE(fig, gs[0, 0], gs[0, 1])
     for ext in ("png", "svg"):
-        fig.savefig(Path(__file__).resolve().parent / "plots" / f"fig3E_showcase.{ext}",
-                    dpi=150, bbox_inches="tight")
+        fig.savefig(PLOTS / f"fig3E_showcase.{ext}", dpi=150, bbox_inches="tight")
     print("wrote fig3E_showcase")
 
 
