@@ -136,8 +136,8 @@ def _palette_map(groups, palette):
 
 
 def _kde_fill(ax, x, y, color, *, levels=7, thresh=0.12):
-    from scipy.stats import gaussian_kde
     from matplotlib.colors import LinearSegmentedColormap, to_rgba
+    from scipy.stats import gaussian_kde
     m = np.isfinite(x) & np.isfinite(y); x, y = x[m], y[m]
     if len(x) < 5:
         return
@@ -257,8 +257,8 @@ def plot_signature_heatmap(counts, gene_groups, *, var_names=None, cell_group=No
     -------
     fig
     """
-    import matplotlib.pyplot as plt
     import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
 
     mat, names = _as_matrix(counts, var_names)
     present = set(names); gi = {g: i for i, g in enumerate(names)}
@@ -272,7 +272,7 @@ def plot_signature_heatmap(counts, gene_groups, *, var_names=None, cell_group=No
     gidx = np.array([gi[g] for g in genes])
 
     # column order (+ optional subsample within each cell group)
-    n = mat.shape[0]; rng = np.random.default_rng(seed)
+    n = mat.shape[0]
     if cell_group is not None:
         cg = np.asarray(cell_group)
         order = list(group_order) if group_order else list(pd.unique(cg))
@@ -343,7 +343,7 @@ def plot_signature_heatmap(counts, gene_groups, *, var_names=None, cell_group=No
     im = ax_hm.imshow(Z, aspect="auto", cmap=cmap,
                       norm=mcolors.TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax), interpolation="none")
     off = 0
-    for lbl, gl in groups_items[:-1]:
+    for _lbl, gl in groups_items[:-1]:
         off += len(gl); ax_hm.axhline(off - 0.5, color="black", lw=1.2)
     ax_hm.set_xticks([])
     if gene_labels:
@@ -364,5 +364,10 @@ def plot_signature_heatmap(counts, gene_groups, *, var_names=None, cell_group=No
     return fig
 
 
-__all__ = ["log_cpm", "score_signature", "top_loading_genes",
-           "plot_em_scatter", "plot_signature_heatmap"]
+__all__ = [
+    "log_cpm",
+    "plot_em_scatter",
+    "plot_signature_heatmap",
+    "score_signature",
+    "top_loading_genes",
+]

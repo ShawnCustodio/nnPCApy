@@ -2,9 +2,11 @@
 Section 2.7-2.10: E vs M and M1 vs M2 scatter plots
 """
 from __future__ import annotations
+
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pandas as pd
+import seaborn as sns
+
 from .plotdata import RebuildResult
 
 COLORS = [

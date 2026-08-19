@@ -1,9 +1,9 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 # ============================================================
-# ssGSEA scoring 
+# ssGSEA scoring
 # ============================================================
 def ssgsea_score(expr_matrix: pd.DataFrame, genes: list, alpha: float = 0.25) -> pd.Series:
 

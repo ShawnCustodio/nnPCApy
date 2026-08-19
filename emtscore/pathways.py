@@ -12,12 +12,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from scipy.stats import pearsonr
 
 from utility.data_paths import resolve_data_file
-from .nsprcomp import nsprcomp
 
+from .nsprcomp import nsprcomp
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -265,6 +264,6 @@ def plot_top_pathways(result: pd.DataFrame, n: int = 10, mode: str = "positive",
 
 
 __all__ = [
-    "run_pathway_correlation_v2",
     "plot_top_pathways",
+    "run_pathway_correlation_v2",
 ]

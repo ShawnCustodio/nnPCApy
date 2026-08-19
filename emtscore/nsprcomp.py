@@ -108,7 +108,7 @@ def nsprcomp(
         sc = np.ones(X.shape[1])
 
     Xp = X.copy()
-    n, d = X.shape
+    _n, d = X.shape
     W = np.zeros((d, ncomp))
     Q = np.zeros((d, ncomp))
     sdev = []

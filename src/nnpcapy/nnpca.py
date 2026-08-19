@@ -46,9 +46,8 @@ def get_nnPCA_result(
         if np.mean(scores) < 0:
             scores = -scores
 
-    elif align_direction == "negative":
-        if np.mean(scores) > 0:
-            scores = -scores
+    elif align_direction == "negative" and np.mean(scores) > 0:
+        scores = -scores
 
     return scores
 
@@ -85,7 +84,7 @@ def run_nnPCA(
     score_mat = pd.DataFrame(score_dict, index=geneExp.index)
 
     # --------------------------------------------------------
-    # Build latent EMT axis 
+    # Build latent EMT axis
     # --------------------------------------------------------
     if score_mat.shape[1] > 1:
         pca = PCA(n_components=dimension)

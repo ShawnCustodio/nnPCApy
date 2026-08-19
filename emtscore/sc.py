@@ -4,19 +4,20 @@ Section 3.1, 3.1-plot, 3.2, 3.2-plot: Single-cell analysis
 
 from __future__ import annotations
 
-import warnings
+from typing import TYPE_CHECKING
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-
 from sklearn.mixture import GaussianMixture
 
 from utility.data_paths import resolve_data_file
-from utility.load_cook2020 import load_all_cook2020, load_cook2020
+from utility.load_cook2020 import load_cook2020
 
 from .nsprcomp import nsprcomp
+
+if TYPE_CHECKING:               # for annotations only; anndata is an optional (sc) dep
+    import anndata
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ from .nsprcomp import nsprcomp
 _COOK_META_COLS = ["Pseudotime", "Treatment", "Time", "Cluster"]
 
 
-def _adata_from_em_expr(path) -> "anndata.AnnData":
+def _adata_from_em_expr(path) -> anndata.AnnData:
     """Build a minimal AnnData from a Cook ``*_em_expr.csv`` file.
 
     The CSV is shaped (cells × [E+M genes + 4 metadata cols]); cell barcodes
@@ -127,7 +128,7 @@ def _build_gmm_em(df: pd.DataFrame, E_genes: list[str], M_genes: list[str]):
     labels = gmm.predict(em)
     order  = np.argsort(gmm.means_[:, 0])
     state_map = {order[0]: "M", order[1]: "EM1", order[2]: "E"}
-    state_labels = np.array([state_map[l] for l in labels])
+    state_labels = np.array([state_map[lab] for lab in labels])
     return em, state_labels
 
 
@@ -186,7 +187,7 @@ def build_gmm_in_em_space(datasets: list[str] | None = None) -> dict[str, dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3.1-plot   EMT score vs Pseudotime 
+# 3.1-plot   EMT score vs Pseudotime
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _loess_1d(x: np.ndarray, y: np.ndarray, frac: float = 0.4,
@@ -261,7 +262,7 @@ def plot_emt_vs_pseudotime(datasets: list[str] | None = None,
         emt = M_score - E_score
 
         xs, ys = _loess_1d(pt, emt, frac=0.5, n_eval=300)
-        ax.plot(xs, ys, lw=2.6, color=palette.get(name, None), label=name)
+        ax.plot(xs, ys, lw=2.6, color=palette.get(name), label=name)
 
     ax.set_xlabel("Pseudotime", fontsize=12)
     ax.set_ylabel("EMT_score", fontsize=12)
@@ -279,14 +280,14 @@ def _alluvial_curve(x0: float, y0_top: float, y0_bot: float,
                      x1: float, y1_top: float, y1_bot: float,
                      ax, color, alpha: float = 0.55) -> None:
     """Draw a single filled flow band (cubic Bezier on each edge)."""
-    from matplotlib.path import Path as _MplPath
     from matplotlib.patches import PathPatch
+    from matplotlib.path import Path as _MplPath
     cx0, cx1 = x0 + 0.45 * (x1 - x0), x1 - 0.45 * (x1 - x0)
     verts = [
         (x0, y0_top),
-        (cx0, y0_top), (cx1, y1_top), (x1, y1_top),  
+        (cx0, y0_top), (cx1, y1_top), (x1, y1_top),
         (x1, y1_bot),
-        (cx1, y1_bot), (cx0, y0_bot), (x0, y0_bot), 
+        (cx1, y1_bot), (cx0, y0_bot), (x0, y0_bot),
         (x0, y0_top),
     ]
     codes = [_MplPath.MOVETO,
@@ -334,13 +335,13 @@ def plot_gmm_sankey(gmm_results: dict[str, dict],
         cluster_totals = ct.sum(axis=1)
         time_totals    = ct.sum(axis=0)
         N = cluster_totals.sum()
-        gap = N * 0.02  
+        gap = N * 0.02
 
-        def _stack_top_to_bot(totals, order):
+        def _stack_top_to_bot(totals, order, N=N, gap=gap):
             tops = {}; running = N + gap * (len(order) - 1)
             for k in order:
                 size = totals[k]
-                tops[k] = (running, running - size)  
+                tops[k] = (running, running - size)
                 running -= size + gap
             return tops
 

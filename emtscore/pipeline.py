@@ -15,21 +15,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 
-from .nnpca    import run_nnPCA
-from .aucell   import execute_aucell
-from .ssGSEA   import execute_ssgsva
-from .nsprcomp import nsprcomp, compute_M1_M2_scores
+from utility.data_paths import resolve_data_file
+from utility.load_cook2020 import COOK_DATASETS, load_cook2020
 
-from utility.data_paths   import resolve_data_file
-from utility.load_cook2020 import load_cook2020, COOK_DATASETS
-
+from .aucell import execute_aucell
+from .nnpca import run_nnPCA
+from .nsprcomp import nsprcomp
+from .ssGSEA import execute_ssgsva
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2.1 – 2.4   Bulk data loading
@@ -306,7 +304,7 @@ def run_cook_gmm(adata, E_genes: list[str], M_genes: list[str],
     labels = gmm.predict(em)
     order  = np.argsort(gmm.means_[:, 0])                 # by Escore mean
     state_map = {order[0]: "M", order[1]: "EM1", order[2]: "E"}
-    states = np.array([state_map[l] for l in labels])
+    states = np.array([state_map[lab] for lab in labels])
     adata.obs["GMM_state"] = states
     return {"em": em, "states": states, "gmm": gmm,
             "pseudotime": adata.obs["Pseudotime"].values}
@@ -495,14 +493,24 @@ def plot_bulk_panels(data: BulkData) -> list[plt.Figure]:
 
 __all__ = [
     "BulkData",
-    # 2
-    "load_bulk_data", "build_em_gmt",
-    "run_multi_method_scoring", "build_comparison_table",
-    "plot_em_scatter", "plot_m1_m2_scatter", "plot_combined_scatter",
-    "plot_m1_histogram", "plot_bulk_panels", "plot_m_heatmap_clustered", "plot_m_heatmap_full",
-    # 3
-    "load_cook_dataset", "compute_em_scores",
-    "run_cook_gmm", "plot_cook_gmm", "run_cook_gmm_all",
-    "run_pathway_correlation", "plot_cook_em_panels",
-    "compute_stem_senescence", "plot_stem_senescence",
+    "build_comparison_table",
+    "build_em_gmt",
+    "compute_em_scores",
+    "compute_stem_senescence",
+    "load_bulk_data",
+    "load_cook_dataset",
+    "plot_bulk_panels",
+    "plot_combined_scatter",
+    "plot_cook_em_panels",
+    "plot_cook_gmm",
+    "plot_em_scatter",
+    "plot_m1_histogram",
+    "plot_m1_m2_scatter",
+    "plot_m_heatmap_clustered",
+    "plot_m_heatmap_full",
+    "plot_stem_senescence",
+    "run_cook_gmm",
+    "run_cook_gmm_all",
+    "run_multi_method_scoring",
+    "run_pathway_correlation",
 ]

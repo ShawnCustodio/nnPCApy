@@ -17,7 +17,7 @@ from utility.data_paths import resolve_data_file
 @dataclass
 class Inputs:
     cell_annot: pd.DataFrame
-    geneExp:    pd.DataFrame   
+    geneExp:    pd.DataFrame
     E_sig:      pd.DataFrame
     M_sig:      pd.DataFrame
     gmt_path:   str

@@ -2,15 +2,16 @@
 Section 2.11 - Heatmaps (full M-signature and top PC1/PC2 driver genes)
 """
 from __future__ import annotations
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from matplotlib.colorbar import ColorbarBase
-from scipy.cluster.hierarchy import linkage, leaves_list, dendrogram
-from scipy.spatial.distance import pdist
 from numpy.linalg import svd as npsvd
+from scipy.cluster.hierarchy import dendrogram, leaves_list, linkage
+from scipy.spatial.distance import pdist
 
 COLORS = [
     "#F87189", "#CE9031", "#A48CF5", "#97A430", "#39A7D0",
@@ -123,7 +124,7 @@ def plot_pc_driver_heatmap(geneExp: pd.DataFrame,
 
     M_genes_present = [g for g in M_sig["GeneName"].tolist() if g in geneExp.columns]
     X_c = geneExp[M_genes_present].values - geneExp[M_genes_present].values.mean(axis=0)
-    U, s_sv, Vt = npsvd(X_c, full_matrices=False)
+    _U, _s_sv, Vt = npsvd(X_c, full_matrices=False)
     pc1_loadings = pd.Series(np.abs(Vt[0]), index=M_genes_present)
     pc2_loadings = pd.Series(np.abs(Vt[1]), index=M_genes_present)
     pc1_bar = pc1_loadings[all_top_genes].values
@@ -194,7 +195,7 @@ def plot_pc_driver_heatmap(geneExp: pd.DataFrame,
     ax_label.set_xlabel("Label", fontsize=7, labelpad=3)
     for sp in ax_label.spines.values(): sp.set_visible(False)
 
-    hm_img = ax_hm.imshow(expr_ordered.values, aspect="auto", cmap="RdBu_r", norm=norm_hm, interpolation="none")
+    ax_hm.imshow(expr_ordered.values, aspect="auto", cmap="RdBu_r", norm=norm_hm, interpolation="none")
     ax_hm.set_xticks([]); ax_hm.set_yticks([])
     for sp in ax_hm.spines.values(): sp.set_visible(False)
     ax_hm_r = ax_hm.twinx()

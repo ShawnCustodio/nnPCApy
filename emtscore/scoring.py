@@ -9,14 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
-
 from sklearn.preprocessing import StandardScaler
 
-from .nnpca   import run_nnPCA
-from .ssGSEA  import execute_ssgsva
-from .aucell  import execute_aucell
+from .aucell import execute_aucell
+from .nnpca import run_nnPCA
+from .ssGSEA import execute_ssgsva
 
 
 @dataclass

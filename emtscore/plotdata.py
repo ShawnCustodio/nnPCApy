@@ -11,11 +11,11 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from .nnpca   import parse_gmt, get_nnPCA_result
-from .ssGSEA  import execute_ssgsva
-from .aucell  import execute_aucell
+from .aucell import execute_aucell
+from .nnpca import get_nnPCA_result, parse_gmt
 from .nsprcomp import compute_M1_M2_scores
 from .scoring import Scores
+from .ssGSEA import execute_ssgsva
 
 
 @dataclass

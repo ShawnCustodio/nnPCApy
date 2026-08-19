@@ -6,18 +6,15 @@ from __future__ import annotations
 
 from colorsys import hls_to_rgb
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
 from matplotlib.colors import LinearSegmentedColormap, to_rgba
-from scipy.stats import pearsonr, gaussian_kde
+from scipy.stats import gaussian_kde, pearsonr
 
-from utility.data_paths    import resolve_data_file
-from utility.load_cook2020 import load_cook2020
+from utility.data_paths import resolve_data_file
 
 from .nsprcomp import nsprcomp
-
 
 # helpers ---------------------------------------------------------------
 
@@ -76,7 +73,7 @@ def _draw_kde_fill(ax: plt.Axes, x: np.ndarray, y: np.ndarray,
 def _scatter_panel(ax: plt.Axes, df: pd.DataFrame, x: str, y: str,
                     hue: str, present: list[str], palette: list,
                     title: str) -> None:
-  
+
     # Layer 1 - per-group KDE density.
     for cat, color in zip(present, palette):
         sub = df[df[hue] == cat]
@@ -97,7 +94,7 @@ def _scatter_panel(ax: plt.Axes, df: pd.DataFrame, x: str, y: str,
             continue
         mx, my = float(sub[x].mean()), float(sub[y].mean())
         sx, sy = float(sub[x].std()),  float(sub[y].std())
-        # white halo bars 
+        # white halo bars
         ax.plot([mx - sx, mx + sx], [my, my],
                 color="white", linewidth=7.0,
                 solid_capstyle="butt", zorder=3.5)
@@ -283,8 +280,8 @@ def plot_em_vs_stem_sen(adata) -> plt.Figure:
 
 
 __all__ = [
-    "plot_em_pc_panels_cook",
     "compute_stem_senescence",
-    "plot_stemness_vs_senescence",
+    "plot_em_pc_panels_cook",
     "plot_em_vs_stem_sen",
+    "plot_stemness_vs_senescence",
 ]
