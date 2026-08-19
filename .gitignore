@@ -60,6 +60,17 @@ Thumbs.db
 /paper/benchmark/results/*
 !/paper/benchmark/results/summary.csv
 
+# benchmark/synth: the Python-only ablation behind Fig 2A (V0->V3 variants)
+!/paper/benchmark/synth/
+/paper/benchmark/synth/*
+!/paper/benchmark/synth/variants.py
+!/paper/benchmark/synth/gen_synth.py
+!/paper/benchmark/synth/sc_ablation.py
+!/paper/benchmark/synth/fig2A_D200_explore.py
+!/paper/benchmark/synth/results/
+/paper/benchmark/synth/results/*
+!/paper/benchmark/synth/results/sc_ablation_D89_D200.csv
+
 /paper/panelE/*
 !/paper/panelE/sc_full.py
 !/paper/panelE/fig3E_showcase.py

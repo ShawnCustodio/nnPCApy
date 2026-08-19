@@ -113,11 +113,49 @@ PY
 
 ```bash
 python paper/panelE/fig3E_showcase.py     # reproduces the Fig 3E scatter + heatmap
-# Optional, slower: the speedup benchmark
-python paper/benchmark/datasets.py && python paper/benchmark/bench_python.py
 ```
 
 - [ ] `fig3E_showcase.py` runs and writes plots under `paper/panelE/plots/`.
+
+## 8. Speedup ablation — Fig 2A (Python only, no R needed)
+
+This is the quickest way to check the performance claim without trusting or
+running anything on the R side. It times the four historical solver variants
+(V0 naive port → V3 shipping) on a seeded synthetic matrix and prints the
+speedup ladder, including the covariance-precompute step (V2 → V3) that is the
+one genuine algorithmic gain.
+
+```bash
+python paper/benchmark/synth/sc_ablation.py          # d=200, matches Fig 2A right panel
+python paper/benchmark/synth/fig2A_D200_explore.py   # redraws our Fig 2A from the shipped CSV
+```
+
+- [ ] `sc_ablation.py` prints the `V0 → V3` ladder. **The qualitative shape
+      should match Fig 2A** — `V0` (naive) slowest, `V3` (shipping) fastest, with
+      a clear several-fold `V2 → V3` covariance step (≈5× on our hardware; the
+      exact ratio depends on your CPU/BLAS, so expect some drift). It also prints
+      our reference ratios — including the R bar you did not run — from
+      `results/sc_ablation_D89_D200.csv` for side-by-side comparison.
+- [ ] `fig2A_D200_explore.py` writes the ablation figure to
+      `paper/benchmark/synth/plots/` to eyeball against manuscript Fig 2A.
+
+## 9. Full R-vs-Python benchmark (optional — requires R)
+
+Everything above needs no R. The published head-to-head already ships in
+`paper/benchmark/results/summary.csv`, and the Python side regenerates on its
+own (`datasets.py` → `bench_python.py` → `compare.py`, which takes a Python-only
+path when R timings are absent). **Only** if you want to regenerate the R
+reference yourself:
+
+```bash
+# needs R + install.packages(c("nsprcomp", "RcppCNPy"))   (~8 min)
+python paper/benchmark/datasets.py
+python paper/benchmark/bench_python.py
+Rscript paper/benchmark/bench_r.R
+python paper/benchmark/compare.py        # merges both sides into summary.csv
+```
+
+- [ ] *(optional)* `summary.csv` regenerates with `speedup` / `mem_ratio` columns.
 
 ## What to look for / red flags
 
