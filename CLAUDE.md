@@ -9,7 +9,8 @@ nnPCApy is a Python port of the R `nsprcomp` algorithm (non-negative sparse PCA)
 Three sections:
 1. **Core library** (`src/nnpcapy/`): installable package — nsprcomp EM solver + three scoring methods
 2. **Application** (`emtscore/`): full EMTscore workflow (bulk + single-cell analysis, plotting)
-3. **Benchmark** (`benchmark/`): R vs Python head-to-head timing comparison
+3. **Benchmark** (`paper/benchmark/`): R vs Python head-to-head timing comparison (moved here from
+   the former top-level `benchmark/` during the `paper/`-reorg)
 
 ## Commands
 
@@ -27,10 +28,10 @@ pytest tests/test_basic.py::test_pc1_nonneg
 ruff check src/ emtscore/ tests/
 
 # Run benchmark (in order)
-python benchmark/datasets.py      # cache .npy inputs (~5 s)
-python benchmark/bench_python.py  # time Python (~3 min)
-Rscript benchmark/bench_r.R       # time R (~8 min, requires nsprcomp + RcppCNPy)
-python benchmark/compare.py       # merge CSVs and generate plots
+python paper/benchmark/datasets.py      # cache .npy inputs (~5 s)
+python paper/benchmark/bench_python.py  # time Python (~3 min)
+Rscript paper/benchmark/bench_r.R       # time R (~8 min, requires nsprcomp + RcppCNPy)
+python paper/benchmark/compare.py       # merge CSVs and generate plots
 ```
 
 ## Architecture
@@ -47,13 +48,13 @@ Three changes take our naive first port to the shipping code (cumulative median 
 
 3. **Covariance precomputation** (`C = Xp.T @ Xp` once per component) — the one algorithmic change vs R: iterate `w ∝ C w` (O(d²)/iter, one GEMV over the d×d covariance) instead of two GEMV over the data matrix (O(n×d)/iter). Break-even is ≈ d/2 iterations, amortized across all restarts and iterations of a component (~5 × 100–200 reuses of the one C). Per-iteration cost falls by ~n/d (≈60× at n=12k, d=200); end-to-end this is ~5× at single-cell scale (Fig 2A). The two-pass submatrix is then a free `C[np.ix_(supp, supp)]` slice rather than a re-scan of Xp. The covariance form is noted by Sigg & Buhmann but not used by the R package.
 
-So the speedup vs R decomposes as **vectorization (R→V2, ~4×) × covariance (V2→V3, ~5×)** at the single-cell ablation point (N=12k, D=200; total ≈21×, robust to gene-set size — the mix shifts with D but the product does not); the naive→shipping journey (params + two-pass) is our port converging to R, not a gain over R. Benchmark numbers (total-wall 19×; single gene sets median ~19×, multi ~8×, single-cell ~12×, bulk ~1.6×; memory ~4–78× less heap) all trace to `benchmark/results/summary.csv`.
+So the speedup vs R decomposes as **vectorization (R→V2, ~4×) × covariance (V2→V3, ~5×)** at the single-cell ablation point (N=12k, D=200; total ≈21×, robust to gene-set size — the mix shifts with D but the product does not); the naive→shipping journey (params + two-pass) is our port converging to R, not a gain over R. Benchmark numbers (total-wall 19×; single gene sets median ~19×, multi ~8×, single-cell ~12×, bulk ~1.6×; memory ~4–78× less heap) all trace to `paper/benchmark/results/summary.csv`.
 
 ### Gene set scoring methods (parallel implementations in both `src/nnpcapy/` and `emtscore/`)
 
 - **nnPCA** (`nnpca.py`): calls nsprcomp on gene subsets; `run_nnPCA()` scores each gene set independently then collapses with PCA
 - **AUCell** (`aucell.py`): fraction of signature genes in top-expressed genes (default 5% threshold)
-- **ssGSEA** (`ssgsea.py`): weighted Kolmogorov-Smirnov running enrichment score
+- **ssGSEA** (`ssGSEA.py`): weighted Kolmogorov-Smirnov running enrichment score
 
 ### Dual-module pattern
 
@@ -61,7 +62,7 @@ So the speedup vs R decomposes as **vectorization (R→V2, ~4×) × covariance (
 
 ### Benchmark
 
-`benchmark/datasets.py` caches 47 normalized matrices as `.npy` files. Both `bench_python.py` and `bench_r.R` read identical inputs and run 705 calls each (47 matrices × 3 ncomps × 5 trials). `compare.py` merges the result CSVs and writes plots to `benchmark/plots/`.
+`paper/benchmark/datasets.py` caches 47 normalized matrices as `.npy` files. Both `bench_python.py` and `bench_r.R` read identical inputs and run 705 calls each (47 matrices × 3 ncomps × 5 trials). `compare.py` merges the result CSVs and writes plots to `paper/benchmark/plots/`. The Python-only speedup ablation behind Fig 2A (V0→V3, no R required) lives in `paper/benchmark/synth/`.
 
 ### Data
 

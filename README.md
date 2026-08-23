@@ -11,14 +11,18 @@ library, and the full EMTscore-style application that uses it.
 ## Layout
 
 ```
-src/nnpcapy/    # installable library: nsprcomp + helpers
-emtscore/       # EMT scoring application: scoring + plotting + GMM
+src/nnpcapy/    # installable library: nsprcomp + nnPCA/AUCell/ssGSEA scoring
+emtscore/       # EMT scoring application layer built on nnpcapy: workflow,
+                # pipeline orchestration, plotting, GMM clustering
 utility/        # data path resolution, Cook 2020 raw-data loaders
 data/           # bundled signatures, GMT files, bulk + Cook SC data
 notebooks/      # two demo notebooks that reproduce the EMTscore vignette
-benchmark/      # R-vs-Python timing harness + committed results/plots
-tests/          # smoke tests for nsprcomp
-EMTScorePy.html # rendered final report from the notebooks
+paper/          # public reproduction path for the manuscript:
+                #   paper/benchmark/ - R-vs-Python timing harness (was
+                #     top-level benchmark/ before the reorg)
+                #   paper/panelE/    - Figure 3E showcase + Cook data packing
+tests/          # tests for nsprcomp, nnPCA, AUCell, ssGSEA
+REVIEW.md       # reviewer checklist for a clean-room install + sanity checks
 ```
 
 ## Install
@@ -101,30 +105,36 @@ sparse PCA; `sign_ref` orients each component (e.g. to pseudotime).
 ## Run the notebooks
 
 ```
+pip install -e ".[full,notebooks]"    # notebooks extra adds jupyter + plotly
 jupyter notebook notebooks/EMTscore_automated.ipynb
 ```
 
 `EMTscore_automated.ipynb` is the slim version that calls into
 `emtscore/workflow.py` for every step. `EMTscore_full_analysis.ipynb`
-is the longer cell-by-cell exploration. Both reproduce every figure in
-`EMTScorePy.html`.
+is the longer cell-by-cell exploration and additionally uses `plotly`
+for one interactive figure. Both reproduce the same EMTscore analysis;
+run either one top to bottom to see all figures.
 
 ## Run the benchmark
 
-`benchmark/` runs `nsprcomp` 705 times per side (47 matrices x 3
+`paper/benchmark/` runs `nsprcomp` 705 times per side (47 matrices x 3
 ncomps x 5 trials) on byte-identical `.npy` inputs, so the comparison
-is implementation-only.
+is implementation-only. (Install with the `benchmark` extra:
+`pip install -e ".[benchmark,dev]"`.)
 
 ```
-python benchmark/datasets.py        # build cached inputs, ~5s
-python benchmark/bench_python.py    # ~3 min
-# In RStudio: open benchmark/bench_r.R and click Source, ~8 min
-python benchmark/compare.py         # merge + emit plots
+python paper/benchmark/datasets.py        # build cached inputs, ~5s
+python paper/benchmark/bench_python.py    # ~3 min
+# In RStudio: open paper/benchmark/bench_r.R and click Source, ~8 min
+python paper/benchmark/compare.py         # merge + emit plots
 ```
+
+The Python-only speedup ablation behind Fig 2A (no R required) lives in
+`paper/benchmark/synth/`; see `REVIEW.md` section 8 for how to run it.
 
 Latest numbers (shipping Python vs R nsprcomp 0.5.1-2; 47 matrices x 3
 ncomps = 141 calls per side). All figures trace to
-`benchmark/results/summary.csv`.
+`paper/benchmark/results/summary.csv`.
 
 - Total wall (sum of median call times): R 54.2s vs Python 2.8s -> ~19x.
 - Per-call speedup: median 8.3x, max 49x.
@@ -133,7 +143,7 @@ ncomps = 141 calls per side). All figures trace to
 - Multi gene sets (filtered C2 pathways, 8-93 genes): median ~8x.
 - By data type: single-cell (n ~3.5-13k cells) median ~12x; bulk
   (n=120 cell lines) ~1.6x -- the covariance optimization needs large n
-  to pay off (see benchmark/README.md and Fig 2A).
+  to pay off (see paper/benchmark/README.md and Fig 2A).
 - Memory: Python uses less heap throughout -- ~4-6x on single-cell
   single gene sets, ~22x on single-cell pathways, ~78x on bulk
   (median ~26x overall).
@@ -145,7 +155,7 @@ iteration). Parameter defaults and the two-pass renormalization are R's
 own -- reproduced, not novel. (Earlier versions of this file quoted
 intermediate-stage benchmark numbers; those have been corrected.)
 
-Plots are in `benchmark/plots/`. `speedup_single.png` is the most
+Plots are in `paper/benchmark/plots/`. `speedup_single.png` is the most
 informative.
 
 ## What's in each subfolder

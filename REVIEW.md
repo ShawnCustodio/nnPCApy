@@ -39,7 +39,8 @@ pytest -q
 ruff check src/ emtscore/ tests/
 ```
 
-- [ ] All tests pass (currently 3).
+- [ ] All tests pass (currently 23 — nsprcomp smoke tests plus AUCell/ssGSEA
+      correctness tests, including a `src/nnpcapy` vs `emtscore` parity check).
 - [ ] `ruff check` reports **All checks passed** — it uses the profile pinned in
       `pyproject.toml` (`[tool.ruff]`), so results are the same on any machine
       regardless of a global ruff config. If you see findings from rules like `S`,

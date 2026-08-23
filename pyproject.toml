@@ -37,12 +37,17 @@ viz = [            # publication-quality plotting (e.g. Figure 3E)
     "matplotlib>=3.8",
     "seaborn>=0.13",
     "scipy>=1.10",   # gaussian_kde for the scatter density contours
+    "pandas>=2.0",   # emtscore.single_cell (score_signature, plot_*) takes DataFrames directly
 ]
 sc = [             # single-cell loaders / GMM / PCA collapse
     "anndata>=0.10",
     "scikit-learn>=1.3",
 ]
 full = ["nnpcapy[app,viz,sc]"]
+notebooks = [       # extra libs the two demo notebooks import that the library itself doesn't need
+    "jupyter>=1.0",
+    "plotly>=5.20",
+]
 benchmark = [
     "matplotlib>=3.8",
     "psutil>=5.9",
