@@ -86,8 +86,48 @@ def nsprcomp(
     em_tol=1e-3,
     em_maxiter=100,
 ):
-    """
-    Returns PCA-like components with optional non-negativity constraint.
+    """Non-negative sparse PCA via expectation-maximization (Sigg & Buhmann, 2008).
+
+    A drop-in Python port of R's ``nsprcomp::nsprcomp()`` -- same defaults,
+    same algorithm (see the module docstring above for the EM summary).
+
+    Parameters
+    ----------
+    x : array-like, shape (n_samples, n_features)
+        Data matrix, samples (e.g. cells) in rows and features (e.g. genes) in
+        columns.
+    ncomp : int, default 1
+        Number of components to extract, largest-variance first.
+    center : bool, default True
+        Mean-center each column before fitting.
+    scale_ : bool, default False
+        Scale each column to unit variance before fitting (R's ``scale.``).
+    nneg : bool, default True
+        Constrain loadings to be non-negative. This is what makes each axis
+        directly interpretable as a non-negative combination of features;
+        set False to recover ordinary PCA.
+    nrestart : int, default 5
+        Number of random EM restarts per component; the highest-variance
+        solution is kept. EM only finds a local optimum, so more restarts
+        trade runtime for a better chance of finding the global one.
+    em_tol : float, default 1e-3
+        Relative convergence tolerance for the EM objective.
+    em_maxiter : int, default 100
+        Maximum EM iterations per restart.
+
+    Returns
+    -------
+    dict with keys:
+        x : ndarray, shape (n_samples, ncomp)
+            Per-sample scores (the data projected onto each component).
+        rotation : ndarray, shape (n_features, ncomp)
+            Loadings; non-negative on every component when ``nneg=True``.
+        sdev : ndarray, shape (ncomp,)
+            Standard deviation explained by each component.
+        center : ndarray, shape (n_features,)
+            Column means subtracted (zeros if ``center=False``).
+        scale : ndarray, shape (n_features,)
+            Column scale factors applied (ones if ``scale_=False``).
     """
     X = np.asarray(x, dtype=np.float64)
     if not X.flags["C_CONTIGUOUS"]:
