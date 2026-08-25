@@ -187,7 +187,7 @@ pathway GMT, and the stemness / senescence TSV signatures.
 
 ## Acknowledgments
 
-`nsprcomp` is by Sigg (2018); this is a NumPy translation
+`nsprcomp` is developed by Sigg (2018). nnPCApy is a NumPy translation
 of the R implementation with modifications to improve efficiency.
 
 MIT license.
