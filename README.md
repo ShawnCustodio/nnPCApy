@@ -1,11 +1,16 @@
+This is a Python library with a companion manuscript under review.
+
+nnPCApy: a Python library for fast non-negative principal component analysis and gene-set scoring
+
+Shawn K Custodio, Zhao Sun, Tian Hong
+
 # nnPCApy
 
-Python port of R's `nsprcomp` (non-negative sparse PCA) and the EMT
-scoring pipeline built on top of it, plus a benchmark comparing the
-Python kernel against the original R implementation.
+A Python implementation of nonnegative, sparse PCA (non-negative sparse PCA) 
+and the EMT scoring pipeline built on top of it, plus a benchmark comparing the
+Python kernel against the original R implementation (nsprcomp by Sigg 2018).
 
-This repo started as the nnPCA kernel inside an EMT scoring analysis I
-was doing. It now holds both pieces: the kernel as an installable
+This repo holds two pieces: the kernel (nnPCA) as an installable
 library, and the full EMTscore-style application that uses it.
 
 ## Layout
@@ -182,8 +187,7 @@ pathway GMT, and the stemness / senescence TSV signatures.
 
 ## Acknowledgments
 
-`nsprcomp` is by Sigg and Buhmann (2008); this is a NumPy translation
-of their R implementation. The EMTscore R package the work was
-developed against is at https://github.com/wenmm/EMTscore.
+`nsprcomp` is by Sigg (2018); this is a NumPy translation
+of the R implementation with modifications to improve efficiency.
 
 MIT license.
