@@ -26,6 +26,7 @@ _sandbox_r/
 .vscode/
 .idea/
 .ipynb_checkpoints/
+.claude/
 
 # OS junk
 .DS_Store

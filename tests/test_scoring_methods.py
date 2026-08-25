@@ -2,8 +2,8 @@
 
 Covers: correctness on constructed ground truth, edge cases (missing genes,
 empty gene sets), the single/multi gene-set GMT entry points, and that the
-"dual-module" src/nnpcapy vs emtscore copies stay in sync (CLAUDE.md's
-documented pattern -- these are meant to be identical implementations).
+"dual-module" src/nnpcapy vs emtscore copies stay in sync -- these are
+meant to be identical implementations.
 """
 
 import numpy as np
@@ -138,7 +138,7 @@ def test_execute_ssgsea_single_out_of_range_raises(mod, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# src/nnpcapy vs emtscore parity (the "dual-module pattern" in CLAUDE.md)
+# src/nnpcapy vs emtscore parity (the "dual-module pattern")
 # --------------------------------------------------------------------------- #
 
 def test_aucell_src_and_emtscore_copies_agree():
