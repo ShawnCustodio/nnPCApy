@@ -165,8 +165,8 @@ informative.
 
 ## What's in each subfolder
 
-`src/nnpcapy/` is the installable library: `nsprcomp.py` is the EM
-solver (NumPy port of the R algorithm), `nnpca.py` adds GMT parsing
+`src/nnpcapy/` is the installable library: `nsprcomp.py` is the core EM
+solver, `nnpca.py` adds GMT parsing
 and per-pathway helpers, `aucell.py` and `ssGSEA.py` are the two other
 scoring methods the EMTscore family uses.
 
