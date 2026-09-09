@@ -35,14 +35,14 @@ REVIEW.md       # reviewer checklist for a clean-room install + sanity checks
 The core solver is dependency-light (NumPy only):
 
 ```
-pip install nnpcapy          # PyPI (once released), or:
+pip install nnpcapy          # PyPI, or:
 pip install -e .             # from a clone -- just the nsprcomp solver
 ```
 
 For the full toolkit (gene-set scoring, plotting, single-cell loaders):
 
 ```
-pip install "nnpcapy[full]"          # PyPI (once released), or from a clone:
+pip install "nnpcapy[full]"          # PyPI, or from a clone:
 pip install -e ".[full,dev]"
 ```
 
