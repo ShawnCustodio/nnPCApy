@@ -117,3 +117,7 @@ include = [
     "LICENSE",
     "pyproject.toml",
 ]
+
+[tool.pytest.ini_options]
+# Import this checkout's own code, not whatever nnpcapy/emtscore is installed
+pythonpath = ["src", "."]

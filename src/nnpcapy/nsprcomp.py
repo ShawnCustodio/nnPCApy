@@ -1,5 +1,5 @@
 """
-Non-negative sparse PCA via EM (Sigg & Buhmann, ICML 2008).
+Non-negative sparse PCA via EM (Sigg & Buhmann, ICML 2008): a port of R's nsprcomp.
 
 Algorithm summary
 -----------------
@@ -7,67 +7,81 @@ For each component cc:
   1. Precompute C = Xp.T @ Xp  (d×d covariance of the deflated data, once per component).
   2. Run `nrestart` independent EM restarts via `_empca_cov_refined`, keep the best.
      Each restart:
-       a. First pass  — full EM on C to convergence; non-negativity zeroes ~half of features,
-                        revealing the active support S.
-       b. Second pass — EM on C[S,S] (free array slice) for refined weights within S.
-  3. Gram-Schmidt orthogonalize the winning w against previous components.
+       a. First pass  — full EM on C to convergence; non-negativity zeroes part of the
+                        features, revealing the active support S.
+       b. Second pass — EM from a fresh start on C[S,S] (free array slice) for refined
+                        weights within S. As in R, it also runs when S is every feature.
+     Inside EM, w is rescaled against earlier components, never projected (see
+     `_empca_cov`), so every component stays non-negative.
+  3. Gram-Schmidt orthogonalize the winning w against previous components to get the
+     deflation vector q (the loading w itself is kept as is).
   4. Deflate Xp in-place: Xp -= outer(Xp @ q, q).
 
-Key optimizations vs the naive port
--------------------------------------
-- nrestart 20→5, em_tol 1e-4→1e-3, em_maxiter 200→100  (matches R defaults; 3× speedup).
-- Two-pass support refinement  (matches R nsprcomp package; additional 2-3× speedup).
-- Covariance precompute C = Xp.T @ Xp: O(d²) per EM iter instead of O(n×d);
-  break-even ~6 iters, we do ~100-200; 177× cheaper per iter for n=12k, d=89
-  (additional 2-3× speedup; total ~7× over naive, ~19× faster than R).
+Given the same random starts (R's rnorm() stream), this reproduces nsprcomp 0.5.1-2 to
+floating-point precision on every component (tests/test_nsprcomp.py).
+
+Differences from R
+------------------
+- Covariance precompute C = Xp.T @ Xp: O(d²) per EM iteration instead of O(n×d). It pays
+  off when n is much larger than d (many cells, gene-set-sized d); see paper/benchmark/v2.
+- With scale_=True, R stops on a constant column; here its scale is set to 1.
 """
 import numpy as np
 
 
 def _empca_cov(C, Q, nneg, em_tol, em_maxiter):
-    """EM on precomputed covariance C = Xp.T @ Xp. O(d²) per iteration instead of O(n*d)."""
+    """EM on precomputed covariance C = Xp.T @ Xp. O(d²) per iteration instead of O(n*d).
+
+    Mirrors nsprcomp's internal empca(). After the non-negativity projection, w is only
+    rescaled, so that its part orthogonal to the earlier deflation vectors Q has unit norm.
+    It is not projected onto that orthogonal complement: projection would reintroduce
+    negative entries, and the deflated C already ignores w's part in span(Q).
+    """
     d = C.shape[0]
     w = np.random.randn(d)
     if nneg:
         w = np.abs(w)
-    w /= np.linalg.norm(w) + 1e-12
+    w /= np.linalg.norm(w)
 
+    obj = 0.0
     obj_old = -np.inf
     for _ in range(em_maxiter):
         Cw = C @ w
         obj = float(w @ Cw)
 
-        if obj != 0 and abs(obj - obj_old) / (obj + 1e-12) < em_tol:
+        if obj == 0 or abs(obj - obj_old) / obj < em_tol:
             break
         obj_old = obj
 
-        denom = obj if obj != 0 else 1e-12
-        w = Cw / denom
+        w = Cw / obj
 
         if nneg:
             w[w < 0] = 0
 
         if Q.shape[1] > 0:
-            w -= Q @ (Q.T @ w)
-
-        norm = np.linalg.norm(w)
+            wo = Q.T @ w
+            norm = np.sqrt(max(w @ w - wo @ wo, 0.0))
+        else:
+            norm = np.linalg.norm(w)
         if norm < 1e-12:
             break
         w /= norm
 
-    return w, obj
+    norm = np.linalg.norm(w)
+    return (w / norm if norm > 0 else w), obj
 
 
 def _empca_cov_refined(C, Q, nneg, em_tol, em_maxiter):
-    """Two-pass EM with covariance. Second pass uses C submatrix (free slice of C)."""
+    """Two-pass EM, as in nsprcomp: the first pass finds the support S = {j : w_j != 0},
+    the second re-solves from a fresh random start on C[S, S] (a free slice of C).
+    Like R, the second pass always runs, also when S is every feature."""
     w, obj = _empca_cov(C, Q, nneg, em_tol, em_maxiter)
-    if not nneg:
-        return w, obj
-
-    supp = np.where(w > 0)[0]
+    supp = np.flatnonzero(w)
     d = C.shape[0]
-    if len(supp) == 0 or len(supp) == d:
+    if len(supp) == 0:
         return w, obj
+    if len(supp) == d:
+        return _empca_cov(C, Q, nneg, em_tol, em_maxiter)
 
     C_sub = C[np.ix_(supp, supp)]
     w_sub, obj = _empca_cov(C_sub, Q[supp, :], nneg, em_tol, em_maxiter)
@@ -140,7 +154,8 @@ def nsprcomp(
         cen = np.zeros(X.shape[1])
 
     if scale_:
-        sc = X.std(axis=0)
+        # R's scale.: root-mean-square with n - 1, which is the sd when X is centred
+        sc = np.sqrt((X * X).sum(axis=0) / (X.shape[0] - 1))
         sc[sc == 0] = 1
         X = X / sc
     else:
@@ -167,7 +182,7 @@ def nsprcomp(
 
         w = best_w
         W[:, cc] = w
-        sdev.append(np.std(Xp @ w))
+        sdev.append(np.std(Xp @ w, ddof=1))   # R: sd(), divisor n - 1
 
         if cc > 0:
             q = w - Q[:, :cc] @ (Q[:, :cc].T @ w)
