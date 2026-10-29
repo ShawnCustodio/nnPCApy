@@ -119,7 +119,9 @@ def prepare_all(verbose: bool = True) -> list[dict]:
                     print(f"  [skip] {sig_label}: only {X.shape[1]} genes present")
                 continue
             tag = f"{ds_name}__{sig_label}"
-            np.save(OUT_DIR / f"{tag}.npy", X)
+            # C order: RcppCNPy::npyLoad ignores the .npy fortran_order flag, so a
+            # column-major file reaches R as a scrambled matrix of the same shape
+            np.save(OUT_DIR / f"{tag}.npy", np.ascontiguousarray(X))
             manifest.append({
                 "tag": tag, "dataset": ds_name, "gene_set": sig_label,
                 "mode": "single", "n_rows": X.shape[0], "n_cols": X.shape[1],
@@ -130,7 +132,7 @@ def prepare_all(verbose: bool = True) -> list[dict]:
             if X.shape[1] < 3:
                 continue
             tag = f"{ds_name}__c2__{pw_name}"
-            np.save(OUT_DIR / f"{tag}.npy", X)
+            np.save(OUT_DIR / f"{tag}.npy", np.ascontiguousarray(X))
             manifest.append({
                 "tag": tag, "dataset": ds_name, "gene_set": pw_name,
                 "mode": "multi", "n_rows": X.shape[0], "n_cols": X.shape[1],

@@ -72,6 +72,14 @@ Thumbs.db
 /paper/benchmark/synth/results/*
 !/paper/benchmark/synth/results/sc_ablation_D89_D200.csv
 
+# benchmark/v2: re-measurement of the R vs Python benchmark (see v2/README.md); inputs and raw
+# results stay local until we decide which summaries to publish
+!/paper/benchmark/v2/
+/paper/benchmark/v2/*
+!/paper/benchmark/v2/*.py
+!/paper/benchmark/v2/worker_r.R
+!/paper/benchmark/v2/README.md
+
 /paper/panelE/*
 !/paper/panelE/sc_full.py
 !/paper/panelE/fig3E_showcase.py
@@ -83,3 +91,6 @@ Thumbs.db
 !/paper/panelE/cook_full/A549_TGFB1_genes.txt
 !/paper/panelE/cook_full/A549_TGFB1_cells.txt
 !/paper/panelE/cook_full/A549_TGFB1_meta.csv
+
+# local working notes
+/revision/
