@@ -4,40 +4,61 @@ Non-negative sparse PCA via EM (Sigg & Buhmann, ICML 2008): a port of R's nsprco
 Algorithm summary
 -----------------
 For each component cc:
-  1. Precompute C = Xp.T @ Xp  (d×d covariance of the deflated data, once per component).
-  2. Run `nrestart` independent EM restarts via `_empca_cov_refined`, keep the best.
+  1. Run `nrestart` independent EM restarts via `_empca_refined`, keep the best.
      Each restart:
-       a. First pass  — full EM on C to convergence; non-negativity zeroes part of the
+       a. First pass  — full EM to convergence; non-negativity zeroes part of the
                         features, revealing the active support S.
-       b. Second pass — EM from a fresh start on C[S,S] (free array slice) for refined
+       b. Second pass — EM from a fresh start on the features in S, for refined
                         weights within S. As in R, it also runs when S is every feature.
      Inside EM, w is rescaled against earlier components, never projected (see
-     `_empca_cov`), so every component stays non-negative.
-  3. Gram-Schmidt orthogonalize the winning w against previous components to get the
+     `_empca`), so every component stays non-negative.
+  2. Gram-Schmidt orthogonalize the winning w against previous components to get the
      deflation vector q (the loading w itself is kept as is).
-  4. Deflate Xp in-place: Xp -= outer(Xp @ q, q).
+  3. Deflate: Xp <- Xp (I - q q').
 
 Given the same random starts (R's rnorm() stream), this reproduces nsprcomp 0.5.1-2 to
 floating-point precision on every component (tests/test_nsprcomp.py).
 
+Two ways to compute the same EM
+-------------------------------
+Each EM step needs Xp' Xp w for the deflated data Xp.
+- method="cov": form C = Xp' Xp once (d×d) and iterate w <- C w, O(d²) per step instead
+  of O(n×d); after each component C is deflated in place, C <- (I - qq') C (I - qq').
+  Pays off when n is much larger than d (many cells, gene-set-sized d).
+- method="data": work on X itself, as R does, with centring, scaling and deflation applied
+  implicitly. Sparse input (any scipy.sparse matrix, e.g. AnnData's .X) is never made
+  dense, so memory stays near the size of X. Pays off when d is large (whole
+  transcriptome) or close to n.
+- method="auto" (default) picks the cheaper one per EM step; both draw the same random
+  numbers and give the same result.
+
 Differences from R
 ------------------
-- Covariance precompute C = Xp.T @ Xp: O(d²) per EM iteration instead of O(n×d). It pays
-  off when n is much larger than d (many cells, gene-set-sized d); see paper/benchmark/v2.
 - With scale_=True, R stops on a constant column; here its scale is set to 1.
+- R stops early when every entry of the deflated data is below 1e-14; here when the
+  remaining variance is below 1e-10 of the total. Both only trigger when ncomp exceeds
+  the rank of the data.
 """
 import numpy as np
 
+_STOP_RTOL = 1e-10          # stop when the deflated data keeps less variance than this
+_COV_MAX_D = 4096           # largest d for which method="auto" forms the d×d matrix C
+_BLOCK = 1024               # rows per block when forming or deflating C
 
-def _empca_cov(C, Q, nneg, em_tol, em_maxiter):
-    """EM on precomputed covariance C = Xp.T @ Xp. O(d²) per iteration instead of O(n*d).
+
+def _is_sparse(x):
+    # scipy.sparse matrices and arrays, without importing scipy
+    return hasattr(x, "tocsr") and hasattr(x, "nnz")
+
+
+def _empca(gram, Q, d, nneg, em_tol, em_maxiter):
+    """One EM run; ``gram(w)`` returns (Xp' Xp w, ||Xp w||²) for the current problem.
 
     Mirrors nsprcomp's internal empca(). After the non-negativity projection, w is only
     rescaled, so that its part orthogonal to the earlier deflation vectors Q has unit norm.
     It is not projected onto that orthogonal complement: projection would reintroduce
-    negative entries, and the deflated C already ignores w's part in span(Q).
+    negative entries, and the deflated data already ignore w's part in span(Q).
     """
-    d = C.shape[0]
     w = np.random.randn(d)
     if nneg:
         w = np.abs(w)
@@ -46,8 +67,7 @@ def _empca_cov(C, Q, nneg, em_tol, em_maxiter):
     obj = 0.0
     obj_old = -np.inf
     for _ in range(em_maxiter):
-        Cw = C @ w
-        obj = float(w @ Cw)
+        Cw, obj = gram(w)
 
         if obj == 0 or abs(obj - obj_old) / obj < em_tol:
             break
@@ -71,23 +91,109 @@ def _empca_cov(C, Q, nneg, em_tol, em_maxiter):
     return (w / norm if norm > 0 else w), obj
 
 
-def _empca_cov_refined(C, Q, nneg, em_tol, em_maxiter):
+def _empca_refined(gram, sub, d, Q, nneg, em_tol, em_maxiter):
     """Two-pass EM, as in nsprcomp: the first pass finds the support S = {j : w_j != 0},
-    the second re-solves from a fresh random start on C[S, S] (a free slice of C).
+    the second re-solves from a fresh random start on the features in S (``sub(S)``).
     Like R, the second pass always runs, also when S is every feature."""
-    w, obj = _empca_cov(C, Q, nneg, em_tol, em_maxiter)
+    w, obj = _empca(gram, Q, d, nneg, em_tol, em_maxiter)
     supp = np.flatnonzero(w)
-    d = C.shape[0]
     if len(supp) == 0:
         return w, obj
     if len(supp) == d:
-        return _empca_cov(C, Q, nneg, em_tol, em_maxiter)
+        return _empca(gram, Q, d, nneg, em_tol, em_maxiter)
 
-    C_sub = C[np.ix_(supp, supp)]
-    w_sub, obj = _empca_cov(C_sub, Q[supp, :], nneg, em_tol, em_maxiter)
+    w_sub, obj = _empca(sub(supp), Q[supp, :], len(supp), nneg, em_tol, em_maxiter)
     w_out = np.zeros(d)
     w_out[supp] = w_sub
     return w_out, obj
+
+
+class _CovEM:
+    """method="cov": EM on C = Xp' Xp, deflated in place after each component."""
+
+    def __init__(self, Xs, sparse, cen, sc):
+        d = Xs.shape[1]
+        if sparse:
+            # centre and scale one block of rows at a time: never a dense copy of X
+            self.C = np.zeros((d, d))
+            for i in range(0, Xs.shape[0], _BLOCK):
+                B = (Xs[i:i + _BLOCK].toarray() - cen) / sc
+                self.C += B.T @ B
+        else:
+            self.C = Xs.T @ Xs
+
+    def gram(self, w):
+        Cw = self.C @ w
+        return Cw, float(w @ Cw)
+
+    def sub(self, S):
+        C_S = self.C[np.ix_(S, S)]
+
+        def gram_S(w):
+            Cw = C_S @ w
+            return Cw, float(w @ Cw)
+        return gram_S
+
+    def residual(self):
+        return float(np.trace(self.C))
+
+    def deflate(self, q):
+        # C <- (I - qq') C (I - qq') = C - c q' - q (c - s q)',  c = C q, s = q'c
+        c = self.C @ q
+        s = float(q @ c)
+        r = c - s * q
+        for i in range(0, len(q), _BLOCK):
+            blk = slice(i, i + _BLOCK)
+            self.C[blk] -= np.outer(c[blk], q) + np.outer(q[blk], r)
+
+
+class _DataEM:
+    """method="data": EM on X itself, Xp = ((X - 1 cen') / sc)(I - Q Q'), applied implicitly."""
+
+    def __init__(self, Xs, sparse, cen, sc, total):
+        self.X, self.sparse, self.cen, self.sc = Xs, sparse, cen, sc
+        self.d = Xs.shape[1]
+        self.Q = np.zeros((self.d, 0))
+        self.left = total            # ||Xp||_F², updated as components are removed
+
+    def _mv(self, v):                # Xp v
+        u = v - self.Q @ (self.Q.T @ v)
+        if not self.sparse:
+            return self.X @ u        # dense X is already centred and scaled
+        u = u / self.sc
+        return self.X @ u - float(self.cen @ u)
+
+    def _rmv(self, z):               # Xp' z
+        if self.sparse:
+            t = (self.X.T @ z - self.cen * z.sum()) / self.sc
+        else:
+            t = self.X.T @ z
+        return t - self.Q @ (self.Q.T @ t)
+
+    def gram(self, w):
+        z = self._mv(w)
+        return self._rmv(z), float(z @ z)
+
+    def sub(self, S):
+        def gram_S(w_S):
+            w = np.zeros(self.d)
+            w[S] = w_S
+            z = self._mv(w)
+            return self._rmv(z)[S], float(z @ z)
+        return gram_S
+
+    def residual(self):
+        return self.left
+
+    def deflate(self, q):
+        z = self._mv(q)              # Xp q, before q joins Q
+        self.left -= float(z @ z)
+        self.Q = np.column_stack([self.Q, q])
+
+
+def _choose_method(n, d, nnz):
+    """Per EM step, "cov" costs about d² and "data" about 2 nnz (nnz = n d if dense)."""
+    return "cov" if d <= _COV_MAX_D and d * d <= 2 * nnz else "data"
 
 
 def nsprcomp(
@@ -99,6 +205,7 @@ def nsprcomp(
     nrestart=5,
     em_tol=1e-3,
     em_maxiter=100,
+    method="auto",
 ):
     """Non-negative sparse PCA via expectation-maximization (Sigg & Buhmann, 2008).
 
@@ -107,9 +214,9 @@ def nsprcomp(
 
     Parameters
     ----------
-    x : array-like, shape (n_samples, n_features)
+    x : array-like or scipy.sparse matrix, shape (n_samples, n_features)
         Data matrix, samples (e.g. cells) in rows and features (e.g. genes) in
-        columns.
+        columns. Sparse input (e.g. AnnData's ``.X``) is not made dense.
     ncomp : int, default 1
         Number of components to extract, largest-variance first.
     center : bool, default True
@@ -128,6 +235,9 @@ def nsprcomp(
         Relative convergence tolerance for the EM objective.
     em_maxiter : int, default 100
         Maximum EM iterations per restart.
+    method : {"auto", "cov", "data"}, default "auto"
+        How each EM step is computed (see the module docstring). Both give the
+        same result; "auto" picks the cheaper one for the shape of ``x``.
 
     Returns
     -------
@@ -142,47 +252,74 @@ def nsprcomp(
             Column means subtracted (zeros if ``center=False``).
         scale : ndarray, shape (n_features,)
             Column scale factors applied (ones if ``scale_=False``).
+        method : str
+            "cov" or "data", the way the EM was computed.
     """
-    X = np.asarray(x, dtype=np.float64)
-    if not X.flags["C_CONTIGUOUS"]:
-        X = np.ascontiguousarray(X)
+    sparse = _is_sparse(x)
+    if sparse:
+        X = x.tocsr().astype(np.float64)
+    else:
+        X = np.asarray(x, dtype=np.float64)
+    n, d = X.shape
 
     if center:
-        cen = X.mean(axis=0)
-        X = X - cen
+        cen = np.asarray(X.mean(axis=0), dtype=np.float64).ravel()
     else:
-        cen = np.zeros(X.shape[1])
+        cen = np.zeros(d)
+
+    if sparse:
+        # column sums of squares of X - 1 cen', without centring X
+        ss = np.asarray(X.multiply(X).sum(axis=0)).ravel() - n * cen * cen
+        ss = np.maximum(ss, 0.0)
+    else:
+        X = X - cen                      # one centred copy; the input is never modified
+        ss = (X * X).sum(axis=0)
 
     if scale_:
         # R's scale.: root-mean-square with n - 1, which is the sd when X is centred
-        sc = np.sqrt((X * X).sum(axis=0) / (X.shape[0] - 1))
+        sc = np.sqrt(ss / (n - 1))
         sc[sc == 0] = 1
-        X = X / sc
+        ss = ss / (sc * sc)
+        if not sparse:
+            X = X / sc
     else:
-        sc = np.ones(X.shape[1])
+        sc = np.ones(d)
 
-    Xp = X.copy()
-    _n, d = X.shape
+    if method == "auto":
+        method = _choose_method(n, d, X.nnz if sparse else n * d)
+    if method == "cov":
+        em = _CovEM(X, sparse, cen, sc)
+    elif method == "data":
+        em = _DataEM(X, sparse, cen, sc, float(ss.sum()))
+    else:
+        raise ValueError(f"method must be 'auto', 'cov' or 'data', not {method!r}")
+
+    # column means of the scaled data, deflated alongside it (zero when center=True)
+    if center:
+        mean = np.zeros(d)
+    else:
+        mean = np.asarray(X.mean(axis=0), dtype=np.float64).ravel() / (sc if sparse else 1)
+    total = em.residual()
+
     W = np.zeros((d, ncomp))
     Q = np.zeros((d, ncomp))
     sdev = []
 
     for cc in range(ncomp):
-        # Precompute covariance once per component: O(n*d²) up front, then O(d²) per EM iter
-        C = Xp.T @ Xp
-
         best_obj = -np.inf
         best_w = None
 
         for _ in range(nrestart):
-            w, obj = _empca_cov_refined(C, Q[:, :cc], nneg, em_tol, em_maxiter)
+            w, obj = _empca_refined(em.gram, em.sub, d, Q[:, :cc], nneg, em_tol, em_maxiter)
             if obj > best_obj:
                 best_obj = obj
                 best_w = w.copy()
 
         w = best_w
         W[:, cc] = w
-        sdev.append(np.std(Xp @ w, ddof=1))   # R: sd(), divisor n - 1
+        # R: sd(Xp %*% w), divisor n - 1
+        _, ssq = em.gram(w)
+        sdev.append(np.sqrt(max(ssq - n * float(mean @ w) ** 2, 0.0) / (n - 1)))
 
         if cc > 0:
             q = w - Q[:, :cc] @ (Q[:, :cc].T @ w)
@@ -194,15 +331,23 @@ def nsprcomp(
             q /= norm
 
         Q[:, cc] = q
-        Xp -= np.outer(Xp @ q, q)
+        em.deflate(q)
+        mean -= float(mean @ q) * q
 
-        if np.all(np.abs(Xp) < 1e-14):
+        if em.residual() <= _STOP_RTOL * total:
             break
+
+    if sparse:
+        Ws = W / sc[:, None]
+        scores = np.asarray(X @ Ws) - cen @ Ws
+    else:
+        scores = X @ W
 
     return {
         "sdev": np.array(sdev),
         "rotation": W,
         "center": cen,
         "scale": sc,
-        "x": X @ W,
+        "x": scores,
+        "method": method,
     }

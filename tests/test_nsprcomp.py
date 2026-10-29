@@ -30,10 +30,11 @@ def _planted(seed, n=300, d=15):
     return X + 0.5 * rng.standard_normal((n, d))
 
 
+@pytest.mark.parametrize("method", ["cov", "data"])
 @pytest.mark.parametrize("seed", range(10))
-def test_nonneg_on_every_component(seed):
+def test_nonneg_on_every_component(seed, method):
     np.random.seed(seed)
-    W = nsprcomp(_planted(seed), ncomp=4, nneg=True, center=True, scale_=False)["rotation"]
+    W = nsprcomp(_planted(seed), ncomp=4, nneg=True, center=True, scale_=False, method=method)["rotation"]
     assert (W >= 0).all()
 
 
@@ -44,13 +45,17 @@ R_CONFIGS = {
 }
 
 
+@pytest.mark.parametrize("sparse", [False, True], ids=["dense", "sparse"])
+@pytest.mark.parametrize("method", ["cov", "data"])
 @pytest.mark.parametrize("cfg", R_CONFIGS)
-def test_matches_r_with_matched_starts(monkeypatch, cfg):
+def test_matches_r_with_matched_starts(monkeypatch, cfg, method, sparse):
     stream = iter(np.loadtxt(FIXTURE / "stream.csv"))
     monkeypatch.setattr(np.random, "randn", lambda d: np.fromiter(stream, float, count=d))
     X = np.loadtxt(FIXTURE / "X.csv", delimiter=",")
+    if sparse:
+        X = pytest.importorskip("scipy.sparse").csr_matrix(X)
 
-    out = nsprcomp(X, ncomp=3, center=True, **R_CONFIGS[cfg])
+    out = nsprcomp(X, ncomp=3, center=True, method=method, **R_CONFIGS[cfg])
 
     np.testing.assert_allclose(out["rotation"], np.loadtxt(FIXTURE / f"rotation_{cfg}.csv", delimiter=","),
                                rtol=0, atol=1e-10)
@@ -110,3 +115,41 @@ def test_em_scores_are_not_oriented_by_pseudotime():
     np.random.seed(0)
     Es, _, _ = compute_em_scores(adata, genes[:8], genes[8:], ncomp_M=1)
     assert np.corrcoef(Es, pt)[0, 1] > 0
+
+
+def test_sparse_input_gives_the_dense_scores():
+    sparse = pytest.importorskip("scipy.sparse")
+    X = np.abs(_planted(2, n=150, d=12))
+    X[X < 0.8] = 0                       # make it actually sparse
+    for method in ("cov", "data"):
+        np.random.seed(0)
+        a = nsprcomp(X, ncomp=3, method=method)
+        np.random.seed(0)
+        b = nsprcomp(sparse.csr_matrix(X), ncomp=3, method=method)
+        np.testing.assert_allclose(b["rotation"], a["rotation"], atol=1e-10)
+        np.testing.assert_allclose(b["x"], a["x"], atol=1e-9)
+
+
+def test_auto_method_follows_shape():
+    np.random.seed(0)
+    assert nsprcomp(_planted(0, n=2000, d=20), method="auto")["method"] == "cov"   # many cells, few genes
+    np.random.seed(0)
+    assert nsprcomp(_planted(0, n=50, d=200), method="auto")["method"] == "data"   # more genes than cells
+
+
+def test_score_signature_accepts_sparse_and_anndata():
+    sparse = pytest.importorskip("scipy.sparse")
+    from emtscore.single_cell import score_signature
+    rng = np.random.default_rng(4)
+    counts = rng.poisson(np.exp(_planted(3, n=120, d=15) / 3)).astype(float)
+    genes = [f"g{i}" for i in range(15)]
+    np.random.seed(0)
+    ref, _, _ = score_signature(pd.DataFrame(counts, columns=genes), genes[:8])
+    np.random.seed(0)
+    s, _, _ = score_signature(sparse.csr_matrix(counts), genes[:8], var_names=genes)
+    np.testing.assert_allclose(s, ref, atol=1e-10)
+    anndata = pytest.importorskip("anndata")
+    adata = anndata.AnnData(sparse.csr_matrix(counts), var=pd.DataFrame(index=genes))
+    np.random.seed(0)
+    s, _, _ = score_signature(adata, genes[:8])
+    np.testing.assert_allclose(s, ref, atol=1e-10)

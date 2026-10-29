@@ -31,13 +31,32 @@ from .nsprcomp import nsprcomp
 # --------------------------------------------------------------------------- #
 # data helpers
 # --------------------------------------------------------------------------- #
+def _is_sparse(x):
+    return hasattr(x, "tocsr") and hasattr(x, "nnz")
+
+
+def _dense(m):
+    return np.asarray(m.toarray() if _is_sparse(m) else m, dtype=np.float64)
+
+
 def _as_matrix(counts, var_names):
-    """Return (float ndarray cells x genes, list of gene names)."""
+    """Return (cells x genes matrix, list of gene names).
+
+    AnnData and scipy.sparse input stay sparse (callers densify only the genes they
+    use); DataFrames and arrays become float ndarrays.
+    """
+    if hasattr(counts, "X") and hasattr(counts, "var_names"):      # AnnData
+        if var_names is None:
+            var_names = list(counts.var_names)
+        counts = counts.X
     if isinstance(counts, pd.DataFrame):
         return counts.to_numpy(np.float64), list(counts.columns)
-    counts = np.asarray(counts, dtype=np.float64)
+    if _is_sparse(counts):
+        counts = counts.tocsr()
+    else:
+        counts = np.asarray(counts, dtype=np.float64)
     if var_names is None:
-        raise ValueError("var_names is required when counts is not a DataFrame")
+        raise ValueError("var_names is required when counts is not a DataFrame or AnnData")
     if len(var_names) != counts.shape[1]:
         raise ValueError("len(var_names) must equal counts.shape[1]")
     return counts, list(var_names)
@@ -60,12 +79,14 @@ def score_signature(counts, genes, *, var_names=None, ncomp=1, standardize=True,
 
     Parameters
     ----------
-    counts : DataFrame (cells x genes) or ndarray
+    counts : AnnData, DataFrame (cells x genes), ndarray or scipy.sparse matrix
         Raw counts of the *full* matrix (library size is taken over all columns).
+        Sparse counts (including AnnData's .X) are not made dense; only the
+        signature genes are.
     genes : list of str
         Signature genes; those present in the matrix are used.
     var_names : list of str, optional
-        Gene names when `counts` is an ndarray.
+        Gene names when `counts` is an ndarray or sparse matrix.
     ncomp : int
         Number of components to extract.
     standardize : bool
@@ -87,10 +108,10 @@ def score_signature(counts, genes, *, var_names=None, ncomp=1, standardize=True,
     if len(idx) < 3:
         raise ValueError(f"only {len(idx)} of {len(genes)} signature genes present (need >= 3)")
     if normalize == "logcpm":
-        lib = mat.sum(axis=1, keepdims=True); lib[lib == 0] = 1.0
-        expr = np.log1p(mat[:, idx] / lib * 1e4)
+        lib = np.asarray(mat.sum(axis=1), dtype=np.float64).reshape(-1, 1); lib[lib == 0] = 1.0
+        expr = np.log1p(_dense(mat[:, idx]) / lib * 1e4)
     elif normalize == "none":
-        expr = mat[:, idx]
+        expr = _dense(mat[:, idx])
     else:
         raise ValueError("normalize must be 'logcpm' or 'none'")
     Z = (expr - expr.mean(0)) / (expr.std(0) + 1e-12)
@@ -229,12 +250,12 @@ def plot_signature_heatmap(counts, gene_groups, *, var_names=None, cell_group=No
 
     Parameters
     ----------
-    counts : DataFrame (cells x genes) or ndarray
-        Raw counts of the full matrix.
+    counts : AnnData, DataFrame (cells x genes), ndarray or scipy.sparse matrix
+        Raw counts of the full matrix; sparse counts are not made dense.
     gene_groups : dict {label: [genes]} or list of genes
         Genes to show; a dict adds a labelled row annotation (e.g. {"E PC1": [...], "M PC1": [...]}).
     var_names : list of str, optional
-        Gene names when `counts` is an ndarray.
+        Gene names when `counts` is an ndarray or sparse matrix.
     cell_group : array-like length n_cells, optional
         Categorical per-cell label used to order columns and draw a top colour strip
         (e.g. time point).
@@ -283,8 +304,9 @@ def plot_signature_heatmap(counts, gene_groups, *, var_names=None, cell_group=No
             cols = cols[np.linspace(0, len(cols) - 1, cap * 6).astype(int)]
         order = None; cg_ord = None
 
-    lib = mat[cols].sum(1, keepdims=True); lib[lib == 0] = 1.0
-    expr = np.log1p(mat[np.ix_(cols, gidx)] / lib * 1e4)
+    sub = mat[cols]
+    lib = np.asarray(sub.sum(axis=1), dtype=np.float64).reshape(-1, 1); lib[lib == 0] = 1.0
+    expr = np.log1p(_dense(sub[:, gidx]) / lib * 1e4)
     Z = ((expr - expr.mean(0)) / (expr.std(0) + 1e-12)).T          # genes x cells
     if vmax is None:
         vmax = float(np.nanpercentile(np.abs(Z), 98)) or 1.0

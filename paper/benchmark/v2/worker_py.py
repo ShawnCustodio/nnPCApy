@@ -29,7 +29,9 @@ k = int(spec["ncomp"])
 
 if spec["solver"] == "nnpcapy":
     import nnpcapy
-    em_code = {sys.modules["nnpcapy.nsprcomp"]._empca_cov.__code__}
+    _solver = sys.modules["nnpcapy.nsprcomp"]
+    # the EM function is _empca since the cov/data split, _empca_cov before it
+    em_code = {(getattr(_solver, "_empca", None) or _solver._empca_cov).__code__}
 
     def fit():
         return nnpcapy.nsprcomp(X, ncomp=k, nneg=True, center=True, scale_=False)
