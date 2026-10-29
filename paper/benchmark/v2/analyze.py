@@ -10,6 +10,8 @@ Writes into results/<run-id>/:
       neg_loadings        number of negative loadings (should be 0 for every non-negative PC)
       cos_pc{j}           |cosine| between this solver's PC j loading and nsprcomp's
       max_angle_deg       largest principal angle between the k-dimensional loading subspaces
+      rel_residual        ||Xc - Xc P|| / ||Xc|| (Frobenius), P the projection onto the span of
+                          the loadings and Xc the centred input
       adj_var_ratio       cumulative adjusted variance tr(Q'CQ), Q an orthonormal basis of the
                           loadings and C the input covariance, relative to nsprcomp's; one
                           convention applied to every solver
@@ -25,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 from common import RESULTS
-from make_inputs import input_path
+from make_inputs import input_path, load_input
 
 REF = "nsprcomp"
 
@@ -62,6 +64,13 @@ def main(run_id: str) -> None:
         W = np.load(run_dir / "loadings" / f"{c['cell']}.npy")
         r["neg_loadings"] = int((W < 0).sum())
         r["min_loading"] = float(W.min())
+        if c["tag"] not in X_cache:                  # keep one centred input in memory at a time
+            X = load_input(input_path(c["suite"], c["tag"]))
+            Xc = X - X.mean(axis=0)
+            X_cache = {c["tag"]: (Xc, float((Xc * Xc).sum()) / (Xc.shape[0] - 1))}
+        Xc, total = X_cache[c["tag"]]
+        av = adjusted_variance(Xc, W)
+        r["rel_residual"] = float(np.sqrt(max(1 - av / total, 0.0)))
         if key in ref.index:
             rc = ref.loc[key]
             r["speedup"] = rc["t_med_s"] / c["t_med_s"]
@@ -72,13 +81,12 @@ def main(run_id: str) -> None:
             for j, v in enumerate(cos, 1):
                 r[f"cos_pc{j}"] = float(v)
             r["max_angle_deg"] = float(principal_angles_deg(W, Wr).max())
-            if c["tag"] not in X_cache:              # keep one centred input in memory at a time
-                X = np.load(input_path(c["suite"], c["tag"]))
-                X_cache = {c["tag"]: X - X.mean(axis=0)}
-            Xc = X_cache[c["tag"]]
-            r["adj_var_ratio"] = adjusted_variance(Xc, W) / adjusted_variance(Xc, Wr)
+            r["adj_var_ratio"] = av / adjusted_variance(Xc, Wr)
         rows.append(r)
     out = pd.DataFrame(rows)
+    for col in ("speedup", "max_angle_deg", "adj_var_ratio"):   # absent when a run has no nsprcomp cells
+        if col not in out:
+            out[col] = np.nan
     out.to_csv(run_dir / "summary_cells.csv", index=False)
 
     g = out.groupby(["suite", "solver", "ncomp", "threads"])
@@ -87,6 +95,7 @@ def main(run_id: str) -> None:
                     median_mem_delta_mb=("mem_delta_mb", "median"), max_mem_delta_mb=("mem_delta_mb", "max"),
                     cells_with_neg=("neg_loadings", lambda s: int((s > 0).sum())),
                     max_angle_deg=("max_angle_deg", "max"), min_adj_var_ratio=("adj_var_ratio", "min"),
+                    median_rel_residual=("rel_residual", "median"),
                     median_iters_total=("iters_total", "median")).reset_index()
     tot_ref = overall[overall["solver"] == REF].set_index(["suite", "ncomp", "threads"])["total_t_med_s"]
     overall["total_speedup"] = [tot_ref.get((s, k, t), np.nan) / v for s, k, t, v in

@@ -2,8 +2,9 @@
 #
 # Usage: Rterm --no-echo --no-restore --no-save --file=worker_r.R --args <spec.json>
 #
-# spec keys: input (.npy), solver, ncomp, threads, mode ("fit" | "baseline" | "env"),
-# seed, out_npy, min_reps, max_reps, min_time.
+# spec keys: input (.npy, or .npz for sparse: R then reads the .mtx beside it), solver,
+# ncomp, threads, mode ("fit" | "baseline" | "env"), seed, out_npy, min_reps,
+# max_reps (0: time the warm-up fit only), min_time.
 #
 #   nsprcomp            CRAN nsprcomp, unmodified
 #   nsprcomp_crossprod  same, with one change: inside the
@@ -38,12 +39,18 @@ if (spec$mode == "env") {
   quit(save = "no")
 }
 
-X <- npyLoad(spec$input)
+sparse_in <- grepl("\\.npz$", spec$input)
+if (sparse_in) {
+  suppressPackageStartupMessages(library(Matrix))
+  X <- as(Matrix::readMM(sub("\\.npz$", ".mtx", spec$input)), "CsparseMatrix")
+} else {
+  X <- npyLoad(spec$input)
+}
 # Layout guard: RcppCNPy ignores the .npy fortran_order flag, so a column-major file would
 # arrive scrambled. run.py sends the top-left corner as NumPy read it.
 if (!is.null(spec$probe)) {
   p <- as.matrix(spec$probe)
-  if (max(abs(X[seq_len(nrow(p)), seq_len(ncol(p))] - p)) > 1e-12)
+  if (max(abs(as.matrix(X[seq_len(nrow(p)), seq_len(ncol(p))]) - p)) > 1e-12)
     stop("input layout mismatch: R does not see the matrix NumPy saved (", spec$input, ")")
 }
 k <- as.integer(spec$ncomp)
@@ -51,6 +58,8 @@ iters <- integer()
 
 if (spec$solver %in% c("nsprcomp", "nsprcomp_crossprod")) {
   suppressPackageStartupMessages(library(nsprcomp))
+  # nsprcomp needs a dense matrix; the copy counts towards the fit's memory, not the baseline
+  if (sparse_in && spec$mode == "fit") X <- as.matrix(X)
   ns <- asNamespace("nsprcomp")
   if (spec$solver == "nsprcomp_crossprod") {
     f <- get("empca", ns)
@@ -97,15 +106,21 @@ if (spec$mode == "fit") {
   # Untimed warm-up: seeded, instrumented, and the one whose loadings are saved.
   set.seed(spec$seed)
   trace_on()
+  t_warm <- bench::hires_time()
   res <- if (spec$solver == "rcppml") fit_seeded(as.integer(spec$seed)) else fit()
+  t_warm <- as.numeric(bench::hires_time() - t_warm)
   trace_off()
   W <- loadings(res)
   npySave(spec$out_npy, matrix(as.double(W), nrow(W)))
 
-  set.seed(spec$seed + 1)
-  bm <- bench::mark(fit(), min_iterations = spec$min_reps, max_iterations = spec$max_reps,
-                    min_time = spec$min_time, check = FALSE, memory = FALSE, filter_gc = FALSE)
-  result$times <- as.numeric(bm$time[[1]])
+  if (spec$max_reps == 0) {         # single-fit mode: the (instrumented) warm-up is the measurement
+    result$times <- t_warm
+  } else {
+    set.seed(spec$seed + 1)
+    bm <- bench::mark(fit(), min_iterations = spec$min_reps, max_iterations = spec$max_reps,
+                      min_time = spec$min_time, check = FALSE, memory = FALSE, filter_gc = FALSE)
+    result$times <- as.numeric(bm$time[[1]])
+  }
   result$iters <- as.integer(get_iters(res))
   result$sdev <- as.numeric(sdev(res))
 }

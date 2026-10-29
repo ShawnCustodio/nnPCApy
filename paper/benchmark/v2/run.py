@@ -5,6 +5,7 @@ Usage:
     python run.py --suite dsweep --ncomps 1 --threads 1,2
     python run.py --suite realdata --run-id NAME       # resume: finished cells are skipped
     python run.py --suite realdata --limit 2           # first 2 inputs only (smoke test)
+    python run.py --suite pbmc3k --ncomps 16 --solvers nsprcomp --max-reps 0   # one fit per cell
 
 Writes results/<run-id>/: env.json, cells.csv (one row per cell, appended as cells
 finish), loadings/<cell>.npy (warm-up loadings), logs/ (worker stdout/stderr).
@@ -20,28 +21,30 @@ import sys
 import zlib
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 
 from common import (MAX_REPS, MIN_REPS, MIN_TIME_S, PY_SOLVERS, R_SOLVERS, RESULTS, SEED,
                     parse_result, run_child, thread_env, worker_cmd)
-from make_inputs import input_path, manifest_path
+from make_inputs import corner, input_path, manifest_path
 
 ALL_SOLVERS = R_SOLVERS + PY_SOLVERS
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--suite", required=True, choices=["realdata", "dsweep"])
+    ap.add_argument("--suite", required=True, choices=["realdata", "dsweep", "pbmc3k"])
     ap.add_argument("--solvers", default=",".join(ALL_SOLVERS))
     ap.add_argument("--ncomps", default="1,2,3")
     ap.add_argument("--threads", default="1")
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--limit", type=int, default=None, help="only the first N inputs")
     ap.add_argument("--min-reps", type=int, default=MIN_REPS)
-    ap.add_argument("--max-reps", type=int, default=MAX_REPS)
+    ap.add_argument("--max-reps", type=int, default=MAX_REPS,
+                    help="0 = time the single warm-up fit only (for very slow cells)")
     ap.add_argument("--min-time", type=float, default=MIN_TIME_S)
     ap.add_argument("--timeout", type=float, default=7200, help="seconds per cell")
+    ap.add_argument("--densify", action="store_true",
+                    help="give Python solvers dense input even when the input is sparse")
     a = ap.parse_args()
 
     solvers = [s for s in a.solvers.split(",") if s]
@@ -84,10 +87,11 @@ def main() -> None:
         cid = cell_id(row, solver, k, t, mode)
         inp = input_path(a.suite, row["tag"])
         # top-left corner as NumPy reads it; worker_r.R stops if R sees anything else
-        probe = np.asarray(np.load(inp, mmap_mode="r")[:3, :3]).tolist()
+        probe = corner(inp)
         spec = {"input": str(inp), "probe": probe, "solver": solver, "ncomp": max(k, 1),
                 "threads": t, "mode": mode, "seed": SEED, "out_npy": str(run_dir / "loadings" / f"{cid}.npy"),
-                "min_reps": a.min_reps, "max_reps": a.max_reps, "min_time": a.min_time}
+                "min_reps": a.min_reps, "max_reps": a.max_reps, "min_time": a.min_time,
+                "densify": a.densify}
         spec_path = run_dir / "specs" / f"{cid}.json"
         spec_path.write_text(json.dumps(spec))
         out = run_child(worker_cmd(solver, spec_path), thread_env(t), a.timeout, run_dir / "logs" / cid)

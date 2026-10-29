@@ -41,13 +41,25 @@ What changed from v1:
 
 ```
 python make_inputs.py                       # realdata (reuses ../_inputs) + dsweep
+python make_inputs.py pbmc3k                # downloads 10x PBMC 3k (~7 MB) on first use
 python run.py --suite realdata              # 47 inputs x ncomp 1-3 x 5 solvers, 1 thread
 python run.py --suite dsweep --ncomps 1,3
+python run.py --suite pbmc3k --ncomps 16 --solvers nnpcapy,rcppml --threads 1,2 --run-id pbmc3k
+python run.py --suite pbmc3k --ncomps 16 --solvers nsprcomp --max-reps 0 --run-id pbmc3k
 python analyze.py <run-id>                  # run-id is printed by run.py
 ```
 
-`run.py` resumes an interrupted run when given the same `--run-id`. `--threads 1,2` adds a
-2-thread configuration.
+`run.py` resumes an interrupted run when given the same `--run-id`, which also lets one run
+combine solvers timed with different settings, as above. `--threads 1,2` adds a
+2-thread configuration. `--max-reps 0` times a single fit (the instrumented warm-up)
+instead of at least five, for cells that take many minutes. `--densify` gives Python
+solvers dense input, e.g. to time a solver revision from before sparse support (set
+`NNPCAPY_REPO` to that checkout).
+
+The pbmc3k suite is the whole transcriptome of 10x PBMC 3k after the Seurat tutorial's
+filtering (2,638 cells x 13,714 genes, 6% non-zero). Python solvers get the sparse
+matrix (`nnpcapy`) or a dense copy (`V2`); in R, RcppML gets it as a sparse `dgCMatrix`
+and nsprcomp as a dense matrix, whose copy counts towards the fit's memory.
 
 On a laptop: plug in to AC power (recorded in `env.json`), use the best-performance power
 mode, and close other heavy programs. Solvers are run in a shuffled order per input so
@@ -72,7 +84,6 @@ that slow drift affects all of them alike.
 
 ## Not yet included
 
-- pbmc3k whole-transcriptome input at k = 16, pending download.
 - Absolute wall time of one complete bootstrap analysis.
 - Figures.
 

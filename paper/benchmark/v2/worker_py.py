@@ -2,8 +2,9 @@
 
 Usage: python worker_py.py <spec.json>
 
-spec keys: input (.npy), solver ("nnpcapy" | "V2"), ncomp, mode ("fit" | "baseline"),
-seed, out_npy, min_reps, max_reps, min_time.
+spec keys: input (.npy, or .npz for sparse), solver ("nnpcapy" | "V2"), ncomp,
+mode ("fit" | "baseline"), seed, out_npy, min_reps, max_reps (0: time the warm-up fit
+only), min_time, densify (give the solver dense input even if the input is sparse).
 
   nnpcapy  the solver in src/nnpcapy (whatever revision is checked out; run.py records it)
   V2       synth/variants.V2_twopass: a NumPy port of R's data-matrix EM with R's defaults
@@ -24,7 +25,13 @@ from common import BENCH, REPO  # noqa: E402
 
 sys.path[:0] = [str(REPO / "src"), str(BENCH / "synth")]
 
-X = np.load(spec["input"])
+if spec["input"].endswith(".npz"):
+    import scipy.sparse as sp
+    X = sp.load_npz(spec["input"]).tocsr()
+    if spec["solver"] != "nnpcapy" or spec.get("densify"):
+        X = X.toarray()        # V2, and nnpcapy before sparse support, need dense input
+else:
+    X = np.load(spec["input"])
 k = int(spec["ncomp"])
 
 if spec["solver"] == "nnpcapy":
@@ -64,7 +71,9 @@ if spec["mode"] == "fit":
 
     np.random.seed(int(spec["seed"]))
     sys.setprofile(_prof)
+    t_warm = time.perf_counter()
     res = fit()
+    t_warm = time.perf_counter() - t_warm
     sys.setprofile(None)
     np.save(spec["out_npy"], np.asarray(res["rotation"], dtype=np.float64))
 
@@ -73,6 +82,8 @@ if spec["mode"] == "fit":
         t0 = time.perf_counter()
         fit()
         times.append(time.perf_counter() - t0)
+    if spec["max_reps"] == 0:      # single-fit mode: the (instrumented) warm-up is the measurement
+        times = [t_warm]
 
     result.update(times=times, iters=iters, sdev=[float(s) for s in res["sdev"]])
 
