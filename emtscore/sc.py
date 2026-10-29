@@ -104,7 +104,6 @@ def _scale_genes_3_2(X: np.ndarray) -> np.ndarray:
 def _build_gmm_em(df: pd.DataFrame, E_genes: list[str], M_genes: list[str]):
     meta_cols = ["Pseudotime", "Treatment", "Time", "Cluster"]
     expr_cols = df.columns.difference(meta_cols)
-    pt = df["Pseudotime"].values
 
     full_expr = _lognorm_3_2(df[expr_cols])
     full_expr = pd.DataFrame(full_expr, index=df.index, columns=expr_cols)
@@ -112,13 +111,9 @@ def _build_gmm_em(df: pd.DataFrame, E_genes: list[str], M_genes: list[str]):
     E_mat = _scale_genes_3_2(full_expr[[g for g in E_genes if g in full_expr.columns]].values)
     M_mat = _scale_genes_3_2(full_expr[[g for g in M_genes if g in full_expr.columns]].values)
 
+    # Non-negative loadings: scores already increase with expression, no sign flip.
     E_raw = nsprcomp(E_mat, ncomp=1)["x"][:, 0]
     M_raw = nsprcomp(M_mat, ncomp=1)["x"][:, 0]
-
-    if np.corrcoef(pt, E_raw)[0, 1] > 0:
-        E_raw = -E_raw
-    if np.corrcoef(pt, M_raw)[0, 1] < 0:
-        M_raw = -M_raw
 
     E_score = (E_raw - E_raw.mean()) / E_raw.std()
     M_score = (M_raw - M_raw.mean()) / M_raw.std()
@@ -253,10 +248,6 @@ def plot_emt_vs_pseudotime(datasets: list[str] | None = None,
         M_mat = _scale_genes_3_2(full[[g for g in M_genes if g in full.columns]].values)
         E_raw = nsprcomp(E_mat, ncomp=1)["x"][:, 0]
         M_raw = nsprcomp(M_mat, ncomp=1)["x"][:, 0]
-        if np.corrcoef(pt, E_raw)[0, 1] > 0:
-            E_raw = -E_raw
-        if np.corrcoef(pt, M_raw)[0, 1] < 0:
-            M_raw = -M_raw
         E_score = (E_raw - E_raw.mean()) / E_raw.std()
         M_score = (M_raw - M_raw.mean()) / M_raw.std()
         emt = M_score - E_score

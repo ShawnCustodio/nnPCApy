@@ -91,9 +91,9 @@ of calls (needs the `viz` extra: `pip install "nnpcapy[viz]"`).
 ```python
 import emtscore as emt   # light import; plotting deps load lazily
 
-# counts: DataFrame (cells x genes), raw counts; pt: pseudotime; time: labels
-sE, _,     _   = emt.score_signature(counts, E_genes, sign_ref=-pt)          # epithelial
-sM, load_M, gM = emt.score_signature(counts, M_genes, ncomp=2, sign_ref=pt)  # mesenchymal
+# counts: DataFrame (cells x genes), raw counts; time: labels
+sE, _,     _   = emt.score_signature(counts, E_genes)           # epithelial
+sM, load_M, gM = emt.score_signature(counts, M_genes, ncomp=2)  # mesenchymal
 
 scores = pd.DataFrame({"E score": sE[:, 0], "M score": sM[:, 0], "time": time})
 fig, ax = emt.plot_em_scatter(scores, "E score", "M score",
@@ -105,7 +105,8 @@ fig2 = emt.plot_signature_heatmap(counts, {"M PC1": pc[0], "M PC2": pc[1]},
 ```
 
 `score_signature` does total-library log-CPM + per-gene z-score + non-negative
-sparse PCA; `sign_ref` orients each component (e.g. to pseudotime).
+sparse PCA. The loadings are non-negative, so each score increases with the
+expression of its genes; no orientation step is needed.
 
 ## Run the notebooks
 

@@ -7,8 +7,9 @@ Panel E — visualization showcase on the FULL A549 TGF-β single-cell matrix
  right : heatmap of the top-5 E-PC1, M-PC1 and M-PC2 loading genes across cells
          grouped by ordered time point, z-scored total-library log-CPM expression,
          with a time-point colour strip and a PC-group row annotation.
-Scoring: total-library log-CPM + per-gene z-score + nsprcomp; scores standardized;
-signs anchored to pseudotime.  draw_panelE() is reused by fig3_combined.py.
+Scoring: total-library log-CPM + per-gene z-score + nsprcomp; scores standardized.
+No sign is set from pseudotime: the loadings are non-negative, so each score already
+increases with its genes' expression.  draw_panelE() is reused by fig3_combined.py.
 """
 from __future__ import annotations
 import sys
@@ -55,12 +56,9 @@ def _load():
     return X, g2i, lib, meta, ind
 
 
-def _score(X, lib, cell_idx, gidx, ncomp, positive_with_pt, pt):
+def _score(X, lib, cell_idx, gidx, ncomp):
     r = sc_full.nnpca(X[np.ix_(cell_idx, gidx)], lib[cell_idx], ncomp)
-    s = r["x"][:, 0]
-    if (np.corrcoef(pt, s)[0, 1] > 0) != positive_with_pt:
-        s = -s
-    return sc_full.zc(s), r["rotation"]
+    return sc_full.zc(r["x"][:, 0]), r["rotation"]
 
 
 def _prepare():
@@ -70,8 +68,8 @@ def _prepare():
     Eg = [g for g in pd.read_csv(DATA / "Panchy_et_al_E_signature.csv")["GeneName"] if g in g2i]
     Mg = [g for g in pd.read_csv(DATA / "Panchy_et_al_M_signature.csv")["GeneName"] if g in g2i]
     Eidx = np.array([g2i[g] for g in Eg]); Midx = np.array([g2i[g] for g in Mg])
-    sE, Erot = _score(X, lib, ind, Eidx, 1, False, pt)
-    sM, Mrot = _score(X, lib, ind, Midx, 2, True, pt)
+    sE, Erot = _score(X, lib, ind, Eidx, 1)
+    sM, Mrot = _score(X, lib, ind, Midx, 2)
     e1 = pd.Series(np.abs(Erot[:, 0]), index=Eg).nlargest(5).index.tolist()
     pc1 = pd.Series(np.abs(Mrot[:, 0]), index=Mg).nlargest(5).index.tolist()
     pc2 = [g for g in pd.Series(np.abs(Mrot[:, 1]), index=Mg).nlargest(9).index if g not in pc1][:5]

@@ -33,9 +33,9 @@ def get_nnPCA_result(
     genes : list of str
         Gene symbols making up the signature.
     align_direction : {"positive", "negative"}, default "positive"
-        PC1's sign is arbitrary; flip it so the mean score is positive (or
-        negative) rather than reporting whichever sign nsprcomp happened to
-        return.
+        "positive" returns scores that increase with the gene set's expression,
+        which is the fitted sign because the loadings are non-negative;
+        "negative" negates them.
 
     Returns
     -------
@@ -58,11 +58,10 @@ def get_nnPCA_result(
     res = nsprcomp(X, ncomp=1, nneg=True, center=True, scale_=False)
     scores = res["x"][:, 0]
 
-    if align_direction == "positive":
-        if np.mean(scores) < 0:
-            scores = -scores
-
-    elif align_direction == "negative" and np.mean(scores) > 0:
+    # The loadings are non-negative, so a higher score already means higher
+    # expression of the gene set. (The sign used to follow the mean of the centred
+    # scores, which is zero up to round-off.)
+    if align_direction == "negative":
         scores = -scores
 
     return scores

@@ -55,7 +55,7 @@ def log_cpm(counts):
 # scoring
 # --------------------------------------------------------------------------- #
 def score_signature(counts, genes, *, var_names=None, ncomp=1, standardize=True,
-                    sign_ref=None, normalize="logcpm"):
+                    normalize="logcpm"):
     """Score a gene signature per cell with non-negative sparse PCA.
 
     Parameters
@@ -70,15 +70,14 @@ def score_signature(counts, genes, *, var_names=None, ncomp=1, standardize=True,
         Number of components to extract.
     standardize : bool
         Z-score the returned scores across cells (recommended for plotting).
-    sign_ref : array-like of length n_cells, optional
-        Flip each component so its score correlates *positively* with this vector
-        (e.g. pseudotime, or the per-cell mean signature expression).
     normalize : {"logcpm", "none"}
         Total-library log-CPM (default) or use the raw values.
 
     Returns
     -------
     scores : ndarray (n_cells, ncomp)
+        Each increases with the expression of its component's genes: the loadings
+        are non-negative, so the sign is fixed by the fit, not chosen afterwards.
     loadings : ndarray (n_present_genes, ncomp), non-negative
     used_genes : list of str
     """
@@ -98,11 +97,6 @@ def score_signature(counts, genes, *, var_names=None, ncomp=1, standardize=True,
     res = nsprcomp(Z, ncomp=ncomp, nneg=True, center=True, scale_=False)
     scores = np.asarray(res["x"], float)[:, :ncomp].copy()
     load = np.asarray(res["rotation"], float)[:, :ncomp]
-    if sign_ref is not None:
-        ref = np.asarray(sign_ref, float)
-        for k in range(scores.shape[1]):
-            if np.std(scores[:, k]) > 0 and np.corrcoef(scores[:, k], ref)[0, 1] < 0:
-                scores[:, k] *= -1; load = load.copy(); load[:, k] *= -1
     if standardize:
         scores = (scores - scores.mean(0)) / (scores.std(0) + 1e-12)
     return scores, load, [names[i] for i in idx]

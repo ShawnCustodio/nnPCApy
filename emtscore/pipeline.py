@@ -255,10 +255,13 @@ def load_cook_dataset(name: str):
 
 def compute_em_scores(adata, E_genes: list[str], M_genes: list[str],
                      ncomp_M: int = 2) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """3.1 — Escore (PC1), Mscore (PC1), Mscore_PC2 aligned to pseudotime."""
+    """3.1 — Escore (PC1), Mscore (PC1), Mscore_PC2.
+
+    The loadings are non-negative, so each score already increases with its genes'
+    expression; no sign is set from pseudotime.
+    """
     X = adata.X.toarray() if hasattr(adata.X, "toarray") else adata.X
     expr = pd.DataFrame(X, index=adata.obs_names, columns=adata.var_names)
-    pt = adata.obs["Pseudotime"].values
     full = pd.DataFrame(_lognorm(expr), index=expr.index, columns=expr.columns)
 
     E_in = [g for g in E_genes if g in full.columns]
@@ -270,12 +273,6 @@ def compute_em_scores(adata, E_genes: list[str], M_genes: list[str],
     Ms = nsprcomp(M_mat, ncomp=ncomp_M)["x"]
     Mp1 = Ms[:, 0]
     Mp2 = Ms[:, 1] if ncomp_M > 1 else None
-
-    # Align sign to pseudotime
-    if np.corrcoef(pt, Es)[0, 1] > 0:
-        Es = -Es
-    if np.corrcoef(pt, Mp1)[0, 1] < 0:
-        Mp1 = -Mp1
 
     # Attach back onto adata.obs for downstream use
     adata.obs["Escore"] = Es

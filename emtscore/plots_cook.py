@@ -137,16 +137,11 @@ def plot_em_pc_panels_cook(adata_sc=None) -> tuple:
     E_genes = pd.read_csv(resolve_data_file("Panchy_et_al_E_signature.csv"))["GeneName"].tolist()
     M_genes = pd.read_csv(resolve_data_file("Panchy_et_al_M_signature.csv"))["GeneName"].tolist()
 
-    pt = adata_sc.obs["Pseudotime"].values
-
+    # Non-negative loadings: scores already increase with expression, no sign flip.
     Escore = _nnpca_scores_3_4(adata_sc, E_genes, ncomp=1)[:, 0]
-    if np.corrcoef(pt, Escore)[0, 1] > 0:
-        Escore = -Escore
 
     M_pcs = _nnpca_scores_3_4(adata_sc, M_genes, ncomp=2)
     Mscore, Mscore_PC2 = M_pcs[:, 0], M_pcs[:, 1]
-    if np.corrcoef(pt, Mscore)[0, 1] < 0:
-        Mscore = -Mscore
 
     adata_sc.obs["Escore"]     = Escore
     adata_sc.obs["Mscore"]     = Mscore
