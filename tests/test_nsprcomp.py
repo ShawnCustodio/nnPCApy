@@ -62,6 +62,55 @@ def test_matches_r_with_matched_starts(monkeypatch, cfg, method, sparse):
     np.testing.assert_allclose(out["sdev"], np.loadtxt(FIXTURE / f"sdev_{cfg}.csv"), rtol=1e-10)
 
 
+@pytest.mark.parametrize("sparse", [False, True], ids=["dense", "sparse"])
+def test_random_state_reproduces_the_fit(sparse):
+    X = _planted(4, n=200, d=15)
+    if sparse:
+        X = pytest.importorskip("scipy.sparse").csr_matrix(X)
+    fits = {m: nsprcomp(X, ncomp=3, method=m, random_state=7) for m in ("cov", "data")}
+    again = nsprcomp(X, ncomp=3, method="cov", random_state=np.random.SeedSequence(7))
+    np.testing.assert_array_equal(fits["cov"]["rotation"], again["rotation"])
+    # both ways of computing the EM start from the same vectors, so they agree
+    np.testing.assert_allclose(fits["cov"]["rotation"], fits["data"]["rotation"], rtol=0, atol=1e-10)
+
+
+def test_random_state_leaves_the_global_generator_alone():
+    np.random.seed(0)
+    expected = np.random.rand(3)
+    np.random.seed(0)
+    nsprcomp(_planted(5), ncomp=2, random_state=1)
+    np.testing.assert_array_equal(np.random.rand(3), expected)
+
+
+def test_random_state_gives_resampled_data_the_same_starts(monkeypatch):
+    # what separates the random starts from resampling: with one seed, every restart
+    # of every component begins from the same vector whatever rows are drawn
+    import importlib
+    mod = importlib.import_module("nnpcapy.nsprcomp")   # the package exports a function of that name
+    real = mod._keyed_starts
+    first = {}
+
+    def record(seed, cc, r):
+        starts = real(seed, cc, r)
+
+        def wrapped(d, S=None):
+            w = starts(d, S)
+            first.setdefault((cc, r), w.copy())
+            return w
+        return wrapped
+
+    monkeypatch.setattr(mod, "_keyed_starts", record)
+    X = _planted(6, n=200, d=15)
+    runs = []
+    for rows in (np.arange(200), np.random.default_rng(1).integers(0, 200, 200)):
+        first.clear()
+        nsprcomp(X[rows], ncomp=2, nrestart=3, random_state=11)
+        runs.append(dict(first))
+    assert runs[0].keys() == runs[1].keys() == {(c, r) for c in range(2) for r in range(3)}
+    for key in runs[0]:
+        np.testing.assert_array_equal(runs[0][key], runs[1][key])
+
+
 def test_emtscore_uses_the_nnpcapy_solver():
     # one solver: emtscore re-exports nnpcapy's instead of keeping its own copy
     assert emt_nsprcomp is nsprcomp

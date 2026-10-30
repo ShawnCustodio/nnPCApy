@@ -19,6 +19,15 @@ For each component cc:
 Given the same random starts (R's rnorm() stream), this reproduces nsprcomp 0.5.1-2 to
 floating-point precision on every component (tests/test_nsprcomp.py).
 
+Random starts
+-------------
+With random_state=None (default) the starts come from NumPy's global generator in R's
+order, one np.random.randn() call per EM run. With random_state set, each restart draws
+from its own stream, keyed by the seed, the component and the restart: the fit is
+reproducible, the global generator is untouched, and data with the same number of
+features get the same starting vectors (used to separate the effect of the random
+starts from that of resampling the data).
+
 Two ways to compute the same EM
 -------------------------------
 Each EM step needs Xp' Xp w for the deflated data Xp.
@@ -51,17 +60,16 @@ def _is_sparse(x):
     return hasattr(x, "tocsr") and hasattr(x, "nnz")
 
 
-def _empca(gram, Q, d, nneg, em_tol, em_maxiter):
-    """One EM run; ``gram(w)`` returns (Xp' Xp w, ||Xp w||²) for the current problem.
+def _empca(gram, Q, w, nneg, em_tol, em_maxiter):
+    """One EM run from the start w (standard normal draws); ``gram(w)`` returns
+    (Xp' Xp w, ||Xp w||²) for the current problem.
 
     Mirrors nsprcomp's internal empca(). After the non-negativity projection, w is only
     rescaled, so that its part orthogonal to the earlier deflation vectors Q has unit norm.
     It is not projected onto that orthogonal complement: projection would reintroduce
     negative entries, and the deflated data already ignore w's part in span(Q).
     """
-    w = np.random.randn(d)
-    if nneg:
-        w = np.abs(w)
+    w = np.abs(w) if nneg else np.array(w, dtype=np.float64)
     w /= np.linalg.norm(w)
 
     obj = 0.0
@@ -91,18 +99,34 @@ def _empca(gram, Q, d, nneg, em_tol, em_maxiter):
     return (w / norm if norm > 0 else w), obj
 
 
-def _empca_refined(gram, sub, d, Q, nneg, em_tol, em_maxiter):
+def _global_starts(d, S=None):
+    # R's order: one draw per EM run, of the length of that run's problem
+    return np.random.randn(d if S is None else len(S))
+
+
+def _keyed_starts(seed, cc, r):
+    """Starts for restart r of component cc from their own stream: a full-length draw
+    per pass, restricted to S on the second, so they depend only on (seed, cc, r, d)."""
+    rng = np.random.default_rng(np.random.SeedSequence(seed.entropy, spawn_key=(*seed.spawn_key, cc, r)))
+
+    def starts(d, S=None):
+        w = rng.standard_normal(d)
+        return w if S is None else w[S]
+    return starts
+
+
+def _empca_refined(gram, sub, d, Q, nneg, em_tol, em_maxiter, starts):
     """Two-pass EM, as in nsprcomp: the first pass finds the support S = {j : w_j != 0},
     the second re-solves from a fresh random start on the features in S (``sub(S)``).
     Like R, the second pass always runs, also when S is every feature."""
-    w, obj = _empca(gram, Q, d, nneg, em_tol, em_maxiter)
+    w, obj = _empca(gram, Q, starts(d), nneg, em_tol, em_maxiter)
     supp = np.flatnonzero(w)
     if len(supp) == 0:
         return w, obj
     if len(supp) == d:
-        return _empca(gram, Q, d, nneg, em_tol, em_maxiter)
+        return _empca(gram, Q, starts(d), nneg, em_tol, em_maxiter)
 
-    w_sub, obj = _empca(sub(supp), Q[supp, :], len(supp), nneg, em_tol, em_maxiter)
+    w_sub, obj = _empca(sub(supp), Q[supp, :], starts(d, supp), nneg, em_tol, em_maxiter)
     w_out = np.zeros(d)
     w_out[supp] = w_sub
     return w_out, obj
@@ -206,6 +230,7 @@ def nsprcomp(
     em_tol=1e-3,
     em_maxiter=100,
     method="auto",
+    random_state=None,
 ):
     """Non-negative sparse PCA via expectation-maximization (Sigg & Buhmann, 2008).
 
@@ -238,6 +263,11 @@ def nsprcomp(
     method : {"auto", "cov", "data"}, default "auto"
         How each EM step is computed (see the module docstring). Both give the
         same result; "auto" picks the cheaper one for the shape of ``x``.
+    random_state : None, int or numpy.random.SeedSequence, default None
+        Seed for the random starts. None uses NumPy's global generator, as R uses
+        its own. With a seed the fit is reproducible and does not touch the global
+        generator, and every restart gets the same starting vector on any data with
+        the same number of features (see the module docstring).
 
     Returns
     -------
@@ -300,6 +330,8 @@ def nsprcomp(
     else:
         mean = np.asarray(X.mean(axis=0), dtype=np.float64).ravel() / (sc if sparse else 1)
     total = em.residual()
+    if random_state is not None and not isinstance(random_state, np.random.SeedSequence):
+        random_state = np.random.SeedSequence(random_state)
 
     W = np.zeros((d, ncomp))
     Q = np.zeros((d, ncomp))
@@ -309,8 +341,9 @@ def nsprcomp(
         best_obj = -np.inf
         best_w = None
 
-        for _ in range(nrestart):
-            w, obj = _empca_refined(em.gram, em.sub, d, Q[:, :cc], nneg, em_tol, em_maxiter)
+        for r in range(nrestart):
+            starts = _global_starts if random_state is None else _keyed_starts(random_state, cc, r)
+            w, obj = _empca_refined(em.gram, em.sub, d, Q[:, :cc], nneg, em_tol, em_maxiter, starts)
             if obj > best_obj:
                 best_obj = obj
                 best_w = w.copy()
