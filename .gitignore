@@ -43,13 +43,14 @@ Thumbs.db
 # Logs
 *.log
 
-# ---- paper/: publish only the reproduction path (benchmark + Fig 3E) ----
+# ---- paper/: publish only the reproduction path (benchmark, Fig 3 resampling, Fig 3E) ----
 # Manuscript drafts, figure-compiling scripts, exploratory analyses, regenerable
 # data (inputs/plots/results checkpoints) and the raw Cook .mtx all stay LOCAL —
 # only the files re-included below are tracked. See README "Bundled vs. checkout".
 /paper/*
 !/paper/benchmark/
 !/paper/panelE/
+!/paper/fig3/
 
 /paper/benchmark/*
 !/paper/benchmark/bench_python.py
@@ -91,6 +92,11 @@ Thumbs.db
 !/paper/panelE/cook_full/A549_TGFB1_genes.txt
 !/paper/panelE/cook_full/A549_TGFB1_cells.txt
 !/paper/panelE/cook_full/A549_TGFB1_meta.csv
+
+# fig3: resampling analyses (see fig3/README.md); results stay local
+/paper/fig3/*
+!/paper/fig3/*.py
+!/paper/fig3/README.md
 
 # local working notes
 /revision/
