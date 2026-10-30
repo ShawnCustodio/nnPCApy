@@ -13,6 +13,9 @@
 #   rcppml              RcppML::pca(t(X), k, nonneg = c(TRUE, FALSE)) at the package's
 #                       defaults (one random start, tol 1e-5, maxit 200), threads pinned.
 #                       t(X) is formed once, outside the timed region (input layout).
+#   rcppml_5start       the same fit from 5 random starts, keeping the one with the largest
+#                       sum(d^2): the effort of nsprcomp's default nrestart = 5. RcppML has no
+#                       restart option, so whole fits are restarted, not single components.
 #
 # mode "baseline" loads the same packages and input but does not fit; "env" prints the
 # R environment for env_info.py. Prints one `RESULT {json}` line on stdout.
@@ -71,6 +74,7 @@ if (spec$solver %in% c("nsprcomp", "nsprcomp_crossprod")) {
     unlockBinding("empca", ns); assign("empca", f, envir = ns); lockBinding("empca", ns)
   }
   fit <- function() nsprcomp(X, ncomp = k, nneg = TRUE, center = TRUE, scale. = FALSE)
+  fit_warm <- fit
   loadings <- function(r) r$rotation
   sdev <- function(r) r$sdev
   # EM iterations: read empca()'s loop counter `ii` on exit (warm-up run only).
@@ -81,12 +85,25 @@ if (spec$solver %in% c("nsprcomp", "nsprcomp_crossprod")) {
     exit = quote(assign("v", c(get("v", envir = .GlobalEnv$.it), ii), envir = .GlobalEnv$.it))))))
   trace_off <- function() invisible(capture.output(suppressMessages(untrace("empca", where = ns))))
   get_iters <- function(r) .it$v
-} else if (spec$solver == "rcppml") {
+} else if (spec$solver %in% c("rcppml", "rcppml_5start")) {
   suppressPackageStartupMessages(library(RcppML))
   Xt <- t(X)
   fit_seeded <- function(seed) RcppML::pca(Xt, k = k, nonneg = c(TRUE, FALSE), seed = seed,
                                            threads = as.integer(spec$threads))
-  fit <- function() fit_seeded(NULL)
+  if (spec$solver == "rcppml") {
+    fit <- function() fit_seeded(NULL)
+    fit_warm <- function() fit_seeded(as.integer(spec$seed))
+  } else {
+    # every start's iterations are kept, as nsprcomp's count includes all its restarts
+    best_of <- function(seeds) {
+      fits <- lapply(seeds, fit_seeded)
+      best <- fits[[which.max(vapply(fits, function(r) sum(r@d^2), 0))]]
+      best@misc$iters_per_factor <- unlist(lapply(fits, function(r) r@misc$iters_per_factor))
+      best
+    }
+    fit <- function() best_of(sample.int(.Machine$integer.max, 5L))
+    fit_warm <- function() best_of(as.integer(spec$seed) + 0:4)
+  }
   loadings <- function(r) r@u
   sdev <- function(r) r@d / sqrt(nrow(X) - 1)
   trace_on <- function() NULL
@@ -98,7 +115,7 @@ if (spec$solver %in% c("nsprcomp", "nsprcomp_crossprod")) {
 
 result <- list(solver = spec$solver, mode = spec$mode, n_rows = nrow(X), n_cols = ncol(X),
                blas = list(list(internal_api = "R reference BLAS", num_threads = 1L)))
-if (spec$solver == "rcppml")
+if (spec$solver %in% c("rcppml", "rcppml_5start"))
   result$blas[[2]] <- list(internal_api = "RcppML OpenMP", num_threads = as.integer(spec$threads))
 
 if (spec$mode == "fit") {
@@ -107,7 +124,7 @@ if (spec$mode == "fit") {
   set.seed(spec$seed)
   trace_on()
   t_warm <- bench::hires_time()
-  res <- if (spec$solver == "rcppml") fit_seeded(as.integer(spec$seed)) else fit()
+  res <- fit_warm()
   t_warm <- as.numeric(bench::hires_time() - t_warm)
   trace_off()
   W <- loadings(res)

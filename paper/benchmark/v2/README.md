@@ -24,6 +24,7 @@ What changed from v1:
 | `nsprcomp` | R | CRAN nsprcomp 0.5.1-2, unmodified (the reference) |
 | `nsprcomp_crossprod` | R | the same, with `t(Xp) %*% (omega * z)` → `crossprod(Xp, omega * z)` inside `empca()`, patched in the worker process only |
 | `rcppml` | R | `RcppML::pca(t(X), k, nonneg = c(TRUE, FALSE))`, GitHub commit `49df8da`, package defaults |
+| `rcppml_5start` | R | the same from 5 random starts, keeping the fit with the largest Σd² (the effort of nsprcomp's default `nrestart = 5`; RcppML has no restart option, so whole fits are restarted) |
 | `V2` | Python | `../synth/variants.V2_twopass`: R's data-matrix EM in NumPy, R defaults, two-pass renormalization |
 | `nnpcapy` | Python | `src/nnpcapy` as checked out; `env.json` records the git revision and whether the solver file was modified |
 
@@ -77,7 +78,7 @@ that slow drift affects all of them alike.
 - **Iterations.** R: `trace()` on nsprcomp's internal `empca()` reads its loop counter at
   exit. Python: a profile hook reads the EM loop counter when the EM function returns.
   RcppML: `misc$iters_per_factor`. One count per EM call: nsprcomp-style solvers make
-  restarts × 2 passes × components calls, RcppML one per component.
+  restarts × 2 passes × components calls, RcppML one per component (× 5 for `rcppml_5start`).
 - **Accuracy** (`analyze.py`) is computed from the saved warm-up loadings against
   nsprcomp's on the same input, k and threads, with one adjusted-variance convention for
   every solver.

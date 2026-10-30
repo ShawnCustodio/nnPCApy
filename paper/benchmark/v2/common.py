@@ -32,7 +32,7 @@ RTERM = os.environ.get("NNPCA_RTERM", r"D:\R\bin\x64\Rterm.exe" if os.name == "n
 MIN_REPS, MAX_REPS, MIN_TIME_S = 5, 50, 0.5
 SEED = 20261029
 
-R_SOLVERS = ("nsprcomp", "nsprcomp_crossprod", "rcppml")
+R_SOLVERS = ("nsprcomp", "nsprcomp_crossprod", "rcppml", "rcppml_5start")
 PY_SOLVERS = ("V2", "nnpcapy")
 
 
