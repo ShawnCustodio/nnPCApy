@@ -14,11 +14,16 @@ Cells are resampled with replacement within strata, by default time point x cult
 et al. (2020) ran the time course twice with two plates each, so Mix1, Mix2, Mix3 and Mix4
 are independent cultures, and Mix3a/b, Mix4a/b are two 10x libraries of one plate. The
 intervals are therefore conditional on these cultures. Intervals are percentile intervals.
+
+Refits use NRESTART = 20 random restarts per component instead of nsprcomp's default 5,
+which often stops at a weaker solution for some gene sets (pc_order.py, Fig S2);
+full-data reference fits use REF_NRESTART = 50.
 """
 from __future__ import annotations
 
 import os
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -30,12 +35,14 @@ sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "paper" / "panelE"))
 import sc_full  # noqa: E402
 
-from nnpcapy.nsprcomp import nsprcomp  # noqa: E402
+from nnpcapy.nsprcomp import LocalOptimumWarning, nsprcomp  # noqa: E402
 
 DATA = REPO / "data"
 RESULTS = HERE / "results"
 ARMS = ("seed", "sampling", "both")
 SEED = 20261029
+NRESTART = 20
+REF_NRESTART = 50
 
 
 def load(dataset: str = "A549_TGFB1"):
@@ -86,10 +93,13 @@ def draws(arm: str, n: int, B: int, seed: int = SEED, groups=None):
         yield b, rows, (lambda k, key=key: np.random.SeedSequence([*key, k]))
 
 
-def fit(Z: np.ndarray, ncomp: int, random_state, nrestart: int = 5) -> dict:
-    """nnPCA of an already centred and z-scored cells x genes block (sc_full.prep)."""
-    return nsprcomp(Z, ncomp=ncomp, nneg=True, center=True, scale_=False,
-                    nrestart=nrestart, random_state=random_state)
+def fit(Z: np.ndarray, ncomp: int, random_state, nrestart: int = NRESTART) -> dict:
+    """nnPCA (centred, non-negative) of a cells x genes block, usually z-scored by zscores().
+    LocalOptimumWarning is silenced: callers read the result's "suboptimal" flags instead."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", LocalOptimumWarning)
+        return nsprcomp(Z, ncomp=ncomp, nneg=True, center=True, scale_=False,
+                        nrestart=nrestart, random_state=random_state)
 
 
 def abs_cos(a: np.ndarray, b: np.ndarray) -> float:

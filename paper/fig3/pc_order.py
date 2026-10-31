@@ -12,7 +12,9 @@ three arms of resample.py. Per draw it records:
   angle          largest principal angle (degrees) between the draw's and the reference's
                  two-component loading spans
   cos1           |cos| between the component matched to reference PC1 and reference PC1
+  flag1          nsprcomp marks PC1 as a local optimum (PC2 explains more of the data)
 
+Refits use nsprcomp's default of 5 restarts (--nrestart), the setting Fig S2 is about.
 The reference is the full-data fit with 50 restarts. For the Fig S2 sets it also records the
 Spearman r between the set's one-component score and the M score in each draw (both
 refitted on the same cells).
@@ -37,8 +39,7 @@ from scipy.stats import rankdata
 GMTS = ("EM_signature.gmt", "filtered.c2.gmt", "degeneracy_demo.gmt")
 CORR_SETS = ("HOUSTIS_ROS", "REACTOME_TRANS_GOLGI_NETWORK_VESICLE_BUDDING")
 M_SET = "Panchy_et_al_M_signature"
-REF_RESTARTS = 50
-METRICS = ("sd1", "sd2", "raw1", "raw2", "order_kept", "ratio", "ratio_raw", "angle", "cos1")
+METRICS = ("sd1", "sd2", "raw1", "raw2", "order_kept", "ratio", "ratio_raw", "angle", "cos1", "flag1")
 
 
 def spearman(a: np.ndarray, b: np.ndarray) -> float:
@@ -48,14 +49,15 @@ def spearman(a: np.ndarray, b: np.ndarray) -> float:
     return 0.0 if d == 0 else float(a @ b / d)
 
 
-def two(r: dict) -> tuple[np.ndarray, np.ndarray]:
-    """Loadings and sdev padded to two components (nsprcomp stops early on rank-1 data)."""
+def two(r: dict) -> tuple[np.ndarray, np.ndarray, bool]:
+    """Loadings and sdev padded to two components (nsprcomp stops early on rank-1 data),
+    and whether PC1 is marked as a local optimum."""
     W, sd = r["rotation"], np.asarray(r["sdev"], float)
     k = W.shape[1]
     if k < 2:
         W = np.pad(W, ((0, 0), (0, 2 - k)))
         sd = np.pad(sd, (0, 2 - len(sd)))
-    return W[:, :2], sd[:2]
+    return W[:, :2], sd[:2], bool(r["suboptimal"][0])
 
 
 def main() -> None:
@@ -66,6 +68,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=rs.SEED)
     ap.add_argument("--sets", default="", help="comma-separated subset of gene sets")
     ap.add_argument("--min-genes", type=int, default=5)
+    ap.add_argument("--nrestart", type=int, default=5, help="restarts per refit (5 = nsprcomp's default)")
     a = ap.parse_args()
 
     X, g2i, _genes, lib, meta = rs.load(a.dataset)
@@ -92,10 +95,10 @@ def main() -> None:
     Z = zscores(np.arange(n))
     ref = {}
     for k, name in enumerate(names):
-        r = rs.fit(Z[:, col[name]], 2, np.random.SeedSequence([a.seed, 0, k]), nrestart=REF_RESTARTS)
-        ref[name] = two(r)
+        r = rs.fit(Z[:, col[name]], 2, np.random.SeedSequence([a.seed, 0, k]), nrestart=rs.REF_NRESTART)
+        ref[name] = two(r)[:2]
     print(f"{a.dataset}: {n} cells, {len(groups)} time x culture strata, {len(names)} gene sets, "
-          f"{len(union)} genes; B={a.B}, S={a.S}", flush=True)
+          f"{len(union)} genes; B={a.B}, S={a.S}, nrestart={a.nrestart}", flush=True)
 
     rs.RESULTS.mkdir(exist_ok=True)
     rows_out, corr_out = [], []
@@ -108,7 +111,7 @@ def main() -> None:
             Zb = Z if arm == "seed" else zscores(rows)
             for k, name in enumerate(names):
                 Zs = Zb[:, col[name]]
-                W, sd = two(rs.fit(Zs, 2, start(k)))
+                W, sd, flag1 = two(rs.fit(Zs, 2, start(k), nrestart=a.nrestart))
                 raw = (Zs @ W).std(axis=0, ddof=1)
                 Wr = ref[name][0]
                 i1, i2 = rs.match2(W, Wr)
@@ -116,13 +119,15 @@ def main() -> None:
                      "order_kept": float((i1, i2) == (0, 1)),
                      "ratio": sd[i2] ** 2 / sd[i1] ** 2 if sd[i1] > 0 else np.nan,
                      "ratio_raw": raw[i2] ** 2 / raw[i1] ** 2 if raw[i1] > 0 else np.nan,
-                     "angle": rs.max_angle_deg(W, Wr), "cos1": rs.abs_cos(W[:, i1], Wr[:, 0])}
+                     "angle": rs.max_angle_deg(W, Wr), "cos1": rs.abs_cos(W[:, i1], Wr[:, 0]),
+                     "flag1": float(flag1)}
                 for m in METRICS:
                     D[name, m][b] = v[m]
             if corr_names:
-                sM = rs.fit(Zb[:, col[M_SET]], 1, start(1000))["x"][:, 0]
+                sM = rs.fit(Zb[:, col[M_SET]], 1, start(1000), nrestart=a.nrestart)["x"][:, 0]
                 for j, name in enumerate(corr_names):
-                    C[name][b] = spearman(rs.fit(Zb[:, col[name]], 1, start(1001 + j))["x"][:, 0], sM)
+                    s = rs.fit(Zb[:, col[name]], 1, start(1001 + j), nrestart=a.nrestart)["x"][:, 0]
+                    C[name][b] = spearman(s, sM)
             if (b + 1) % 50 == 0 or b + 1 == nb:
                 el = time.perf_counter() - t0
                 print(f"  {arm}: {b + 1}/{nb} ({el:.0f} s, {el / (b + 1):.2f} s/draw)", flush=True)
@@ -135,7 +140,8 @@ def main() -> None:
             p = float(d["order_kept"].mean())
             row = {"gene_set": name, "n_genes": len(sets[name]), "arm": arm, "draws": nb,
                    "ref_sd1": ref[name][1][0], "ref_sd2": ref[name][1][1],
-                   "p_order_kept": p, "p_order_kept_mcse": rs.support_se(p, nb)}
+                   "p_order_kept": p, "p_order_kept_mcse": rs.support_se(p, nb),
+                   "p_flag1": float(d["flag1"].mean())}
             for m in ("ratio", "ratio_raw", "angle", "cos1", "sd1", "sd2", "raw1", "raw2"):
                 x = d[m][np.isfinite(d[m])]
                 lo, hi = rs.ci(x)

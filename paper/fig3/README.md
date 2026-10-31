@@ -21,13 +21,30 @@ and Mix4a/b are two 10x libraries of one plate and are merged. The intervals des
 uncertainty given these cultures. Intervals are 95% percentile intervals; support
 frequencies and interval endpoints come with Monte Carlo standard errors.
 
+## Restarts
+
+nsprcomp's default of 5 random restarts often stops at a weaker solution for some gene
+sets (`pc_order.py` shows this for Fig S2). Refits here use `resample.NRESTART = 20` and
+full-data reference fits `REF_NRESTART = 50`; `pc_order.py` keeps the default 5, which is
+what Fig S2 is about. nsprcomp marks a component it can prove is a weaker solution
+(`suboptimal`, `LocalOptimumWarning`); the scripts record the flag instead of warning.
+
 ## Scripts
 
 | script | panels | output (`results/`, not tracked) |
 |---|---|---|
+| `synth_order.py` | Fig 3A | `synth_order.csv` |
 | `pc_order.py` | Fig 3B, Fig S2 | `pc_order_summary.csv`, `pc_order_corr_summary.csv`, `pc_order_<arm>.npz` |
+| `time_steps.py` | Fig 3C | `time_means.csv`, `time_steps.csv`, `time_steps_by_culture.csv`, `time_steps_loco.csv` |
+| `c2_screen.py` | Fig 3D | `c2_screen.csv`, one file per draw in `c2_screen/` |
+| `restart_scan.py` | Methods (restarts), Fig S2 | `restart_scan.csv`, `restart_scan_summary.csv`, `restart_curve_trans_golgi.csv` |
 
 ```
-python pc_order.py                 # B = 1000 resamples, S = 200 seeds; ~30 min on a laptop
-python pc_order.py --B 20 --S 10   # quick check
+python synth_order.py              # B = 1000, S = 200; about 2 min
+python pc_order.py                 # B = 1000, S = 200; about 20 min
+python time_steps.py               # B = 2000, S = 200; a few minutes
+python c2_screen.py --B 300 --workers 2    # hours: ~2-4 min per draw per worker
+python restart_scan.py             # S = 50; about 70 min
 ```
+
+Each script takes `--B` and `--S` (or `--limit`) for a quick check.
