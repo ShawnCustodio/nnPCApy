@@ -47,12 +47,24 @@ Differences from R
 - R stops early when every entry of the deflated data is below 1e-14; here when the
   remaining variance is below 1e-10 of the total. Both only trigger when ncomp exceeds
   the rank of the data.
+- A check R does not make: if component k+1, which is non-negative and so a candidate for
+  component k too, explains more of the data left before component k than component k
+  itself, then component k is a local optimum of the EM and a better solution exists.
+  Such components are marked in the result ("suboptimal") and a LocalOptimumWarning is
+  issued. The check is sufficient, not necessary: it cannot see a better solution that no
+  later component happens to point at, and with ncomp=1 it never applies.
 """
+import warnings
+
 import numpy as np
 
 _STOP_RTOL = 1e-10          # stop when the deflated data keeps less variance than this
 _COV_MAX_D = 4096           # largest d for which method="auto" forms the d×d matrix C
 _BLOCK = 1024               # rows per block when forming or deflating C
+
+
+class LocalOptimumWarning(UserWarning):
+    """A component is a local optimum of the EM: a better non-negative solution exists."""
 
 
 def _is_sparse(x):
@@ -169,6 +181,7 @@ class _CovEM:
         for i in range(0, len(q), _BLOCK):
             blk = slice(i, i + _BLOCK)
             self.C[blk] -= np.outer(c[blk], q) + np.outer(q[blk], r)
+        return c, s
 
 
 class _DataEM:
@@ -211,8 +224,10 @@ class _DataEM:
 
     def deflate(self, q):
         z = self._mv(q)              # Xp q, before q joins Q
-        self.left -= float(z @ z)
+        c, s = self._rmv(z), float(z @ z)
+        self.left -= s
         self.Q = np.column_stack([self.Q, q])
+        return c, s
 
 
 def _choose_method(n, d, nnz):
@@ -278,6 +293,9 @@ def nsprcomp(
             Loadings; non-negative on every component when ``nneg=True``.
         sdev : ndarray, shape (ncomp,)
             Standard deviation explained by each component.
+        suboptimal : ndarray of bool, shape (ncomp,)
+            True where the component is provably a local optimum (see the module
+            docstring); a LocalOptimumWarning is issued if any is True.
         center : ndarray, shape (n_features,)
             Column means subtracted (zeros if ``center=False``).
         scale : ndarray, shape (n_features,)
@@ -336,6 +354,8 @@ def nsprcomp(
     W = np.zeros((d, ncomp))
     Q = np.zeros((d, ncomp))
     sdev = []
+    suboptimal = np.zeros(ncomp, dtype=bool)
+    prev = None                      # (c, s, q, objective) of the previous component
 
     for cc in range(ncomp):
         best_obj = -np.inf
@@ -354,6 +374,17 @@ def nsprcomp(
         _, ssq = em.gram(w)
         sdev.append(np.sqrt(max(ssq - n * float(mean @ w) ** 2, 0.0) / (n - 1)))
 
+        if prev is not None:
+            # w on the previous component's problem: w' C_prev w, with C_prev = Xp' Xp
+            # before the last deflation, divided by the squared norm of w orthogonal
+            # to the deflation vectors before that one
+            c_p, s_p, q_p, obj_p = prev
+            t = float(q_p @ w)
+            u = w - Q[:, :cc - 1] @ (Q[:, :cc - 1].T @ w)
+            uu = float(u @ u)
+            if uu > 0 and (ssq + 2 * float(c_p @ w) * t - s_p * t * t) / uu > obj_p * (1 + em_tol):
+                suboptimal[cc - 1] = True
+
         if cc > 0:
             q = w - Q[:, :cc] @ (Q[:, :cc].T @ w)
         else:
@@ -364,11 +395,19 @@ def nsprcomp(
             q /= norm
 
         Q[:, cc] = q
-        em.deflate(q)
+        c_p, s_p = em.deflate(q)
+        prev = (c_p, s_p, q, ssq / norm ** 2 if norm > 0 else np.inf)
         mean -= float(mean @ q) * q
 
         if em.residual() <= _STOP_RTOL * total:
             break
+
+    suboptimal = suboptimal[:len(sdev)]
+    if suboptimal.any():
+        which = ", ".join(str(k + 1) for k in np.flatnonzero(suboptimal))
+        warnings.warn(f"component(s) {which}: a later component explains more of the data left at that step, "
+                      "so a better non-negative solution exists; increase nrestart. This check cannot "
+                      "detect every such case.", LocalOptimumWarning, stacklevel=2)
 
     if sparse:
         Ws = W / sc[:, None]
@@ -383,4 +422,5 @@ def nsprcomp(
         "scale": sc,
         "x": scores,
         "method": method,
+        "suboptimal": suboptimal,
     }

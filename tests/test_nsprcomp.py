@@ -30,6 +30,7 @@ def _planted(seed, n=300, d=15):
     return X + 0.5 * rng.standard_normal((n, d))
 
 
+@pytest.mark.filterwarnings("ignore::nnpcapy.nsprcomp.LocalOptimumWarning")   # PC4 is noise here
 @pytest.mark.parametrize("method", ["cov", "data"])
 @pytest.mark.parametrize("seed", range(10))
 def test_nonneg_on_every_component(seed, method):
@@ -109,6 +110,50 @@ def test_random_state_gives_resampled_data_the_same_starts(monkeypatch):
     assert runs[0].keys() == runs[1].keys() == {(c, r) for c in range(2) for r in range(3)}
     for key in runs[0]:
         np.testing.assert_array_equal(runs[0][key], runs[1][key])
+
+
+def _two_blocks(n=200, seed=0):
+    """Genes 0-4 (block A, sd 2) and 5-9 (block B, sd 1) with exactly uncorrelated
+    centred columns, so an EM run started on B alone never leaves B."""
+    rng = np.random.default_rng(seed)
+    U, _ = np.linalg.qr(np.column_stack([np.ones(n), rng.standard_normal((n, 10))]))
+    U = U[:, 1:] * np.sqrt(n - 1)                        # centred, orthonormal columns
+    A = np.outer(U[:, 0], [1, 1, 1, 1, 1]) * 2 / np.sqrt(5) + 0.1 * U[:, 1:6]
+    B = np.outer(U[:, 6], [1, 1, 1, 1, 1]) / np.sqrt(5) + 0.1 * U[:, 7:10] @ rng.random((3, 5))
+    return np.hstack([A, B])
+
+
+@pytest.mark.parametrize("method", ["cov", "data"])
+def test_warns_when_a_later_component_beats_an_earlier_one(monkeypatch, method):
+    import importlib
+    mod = importlib.import_module("nnpcapy.nsprcomp")
+    # PC1's two EM passes start on block B only, so PC1 is B's (smaller) component, a
+    # local optimum; PC2 starts on every gene and finds block A, which explains more of
+    # the data PC1 was fitted to
+    calls = []
+
+    def starts(d, S=None):
+        calls.append(d)
+        if S is not None:
+            return np.ones(len(S))
+        return np.r_[np.zeros(5), np.ones(5)] if len(calls) <= 2 else np.ones(d)
+
+    monkeypatch.setattr(mod, "_global_starts", starts)
+    X = _two_blocks()
+    with pytest.warns(mod.LocalOptimumWarning, match="component"):
+        out = nsprcomp(X, ncomp=2, nrestart=1, method=method)
+    assert out["sdev"][1] > out["sdev"][0]
+    np.testing.assert_array_equal(out["suboptimal"], [True, False])
+
+
+@pytest.mark.parametrize("method", ["cov", "data"])
+def test_no_warning_when_the_order_is_right(method):
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        out = nsprcomp(_two_blocks(), ncomp=2, method=method, random_state=0)
+    assert out["sdev"][0] > out["sdev"][1]
+    assert not out["suboptimal"].any()
 
 
 def test_emtscore_uses_the_nnpcapy_solver():
