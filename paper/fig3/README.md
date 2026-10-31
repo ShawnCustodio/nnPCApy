@@ -39,6 +39,7 @@ what Fig S2 is about. nsprcomp marks a component it can prove is a weaker soluti
 | `c2_screen.py` | Fig 3D | `c2_screen.csv`, one file per draw in `c2_screen/` |
 | `restart_scan.py` | Methods (restarts), Fig S2 | `restart_scan.csv`, `restart_scan_summary.csv`, `restart_curve_trans_golgi.csv` |
 | `dense_pc1.py` | Supplementary (nnPCA vs dense PC1) | `dense_pc1.csv` |
+| `plot_fig3.py` | draws Fig 3A–D, Fig S2, nnPCA vs dense PC1 | `plots/` (png and svg, not tracked) |
 
 ```
 python synth_order.py              # B = 1000, S = 200; about 2 min
@@ -47,6 +48,7 @@ python time_steps.py               # B = 2000, S = 200; a few minutes
 python c2_screen.py --B 300 --workers 2    # hours: ~2-4 min per draw per worker
 python restart_scan.py             # S = 50; about 70 min
 python dense_pc1.py                # about 5 min
+python plot_fig3.py                # seconds; reads results/
 ```
 
 Each script takes `--B` and `--S` (or `--limit`) for a quick check.
