@@ -42,7 +42,7 @@ DS = "A549_TGFB1"
 TIME_ORDER = ["0d", "8h", "1d", "3d", "7d"]
 CAP = 130
 E1_COL, PC1_COL, PC2_COL = "#1f6feb", "#0f8a7e", "#c8811a"
-FS_LAB, FS_TICK, FS_GENE = 11, 9.5, 8
+FS_LAB, FS_TICK, FS_GENE = 7, 6.5, 5.5
 
 
 def parse_gmt(p):
@@ -119,22 +119,23 @@ def _scatter(ax, pdf, present, cmap_t, ci):
         _kde_fill(ax, s["Escore"].to_numpy(), s["Mscore"].to_numpy(), cmap_t[t])
     for t in present:
         s = pdf[pdf["Time"] == t]
-        ax.scatter(s["Escore"], s["Mscore"], s=7, alpha=0.16, color=cmap_t[t], edgecolors="none", zorder=2)
+        ax.scatter(s["Escore"], s["Mscore"], s=2, alpha=0.2, color=cmap_t[t], edgecolors="none", zorder=2)
     handles = []
     for t in present:
         r = ci.loc[t]
         xerr = [[r.E_mean - r.E_lo], [r.E_hi - r.E_mean]]; yerr = [[r.M_mean - r.M_lo], [r.M_hi - r.M_mean]]
         ax.errorbar(r.E_mean, r.M_mean, xerr=xerr, yerr=yerr, fmt="none", ecolor="white",
-                    elinewidth=5.5, capsize=8, capthick=5.5, zorder=3.5)
+                    elinewidth=2.6, capsize=3.5, capthick=2.6, zorder=3.5)
         ax.errorbar(r.E_mean, r.M_mean, xerr=xerr, yerr=yerr, fmt="none", ecolor="black",
-                    elinewidth=2.2, capsize=6, capthick=2.2, zorder=4)
-        handles.append(ax.scatter([r.E_mean], [r.M_mean], s=95, color=cmap_t[t], edgecolors="white",
-                                  linewidths=2.0, zorder=5, label=t))
-    ax.set_xlabel("Standardized nnPCA E score", fontsize=FS_LAB)
-    ax.set_ylabel("Standardized nnPCA M score", fontsize=FS_LAB)
+                    elinewidth=1.0, capsize=2.5, capthick=1.0, zorder=4)
+        handles.append(ax.scatter([r.E_mean], [r.M_mean], s=28, color=cmap_t[t], edgecolors="white",
+                                  linewidths=0.8, zorder=5, label=t))
+    ax.set_xlabel("Standardized nnPCA E Score", fontsize=FS_LAB)
+    ax.set_ylabel("Standardized nnPCA M Score", fontsize=FS_LAB)
     ax.tick_params(labelsize=FS_TICK); ax.grid(alpha=0.15)
-    ax.legend(handles=handles, title="Time point (● mean ± 95% CI)", loc="upper right", fontsize=FS_TICK,
-              title_fontsize=FS_TICK, frameon=True, facecolor="white", edgecolor="0.8", framealpha=0.9)
+    ax.legend(handles=handles, title="Time Point (Mean ± 95% CI)", loc="upper right", fontsize=FS_TICK,
+              title_fontsize=FS_TICK, frameon=True, facecolor="white", edgecolor="0.8", framealpha=0.9,
+              borderpad=0.4, labelspacing=0.3, handletextpad=0.3)
     ax.set_box_aspect(1)
 
 
@@ -152,7 +153,7 @@ def _heatmap(fig, spec, X, g2i, lib, ind, pdf, times, present, cmap_t, groups):
     times_ord = times[cols]
     Z = sc_full.prep(X[np.ix_(ind[cols], gidx)], lib[ind[cols]]).T      # genes × cells
 
-    hgs = spec.subgridspec(2, 4, height_ratios=[0.05, 1.0], width_ratios=[0.05, 1.0, 0.14, 0.035],
+    hgs = spec.subgridspec(2, 4, height_ratios=[0.05, 1.0], width_ratios=[0.05, 1.0, 0.24, 0.035],
                            hspace=0.02, wspace=0.02)
     ax_ts = fig.add_subplot(hgs[0, 1]); ax_pc = fig.add_subplot(hgs[1, 0])
     ax_hm = fig.add_subplot(hgs[1, 1]); ax_cb = fig.add_subplot(hgs[1, 3])
@@ -167,7 +168,7 @@ def _heatmap(fig, spec, X, g2i, lib, ind, pdf, times, present, cmap_t, groups):
         ax_ts.text(b + nn / 2, -0.8, t, ha="center", va="bottom", fontsize=FS_TICK, color="#333")
         b += nn
         if b < len(times_ord):
-            ax_hm.axvline(b - 0.5, color="white", lw=1.1)
+            ax_hm.axvline(b - 0.5, color="white", lw=0.8)
 
     strip = []
     for _, gl, col in groups:
@@ -187,14 +188,14 @@ def _heatmap(fig, spec, X, g2i, lib, ind, pdf, times, present, cmap_t, groups):
                       norm=mcolors.TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax), interpolation="none")
     off = 0
     for name, gl, col in groups[:-1]:
-        off += len(gl); ax_hm.axhline(off - 0.5, color="black", lw=1.2)
+        off += len(gl); ax_hm.axhline(off - 0.5, color="black", lw=0.8)
     ax_hm.set_xticks([]); ax_hm.set_yticks(range(len(genes)))
     ax_hm.set_yticklabels(genes, fontsize=FS_GENE)
     ax_hm.yaxis.tick_right(); ax_hm.tick_params(right=False)
-    ax_hm.set_xlabel(f"Cells grouped by time point  (n={len(cols)})", fontsize=FS_LAB)
+    ax_hm.set_xlabel(f"Cells Grouped by Time Point (n = {len(cols)})", fontsize=FS_LAB)
     for sp in ax_hm.spines.values():
         sp.set_visible(False)
-    cb = fig.colorbar(im, cax=ax_cb); cb.set_label("Expression (z-score)", fontsize=FS_TICK)
+    cb = fig.colorbar(im, cax=ax_cb); cb.set_label("Expression (Z-Score)", fontsize=FS_TICK)
     cb.ax.tick_params(labelsize=FS_TICK - 1)
     return ax_ts
 
@@ -212,12 +213,13 @@ def draw_panelE(fig, spec_scatter, spec_heatmap):
 
 
 def main():
-    fig = plt.figure(figsize=(15, 5.6))
-    gs = fig.add_gridspec(1, 2, width_ratios=[1.0, 1.55], wspace=0.20,
-                          left=0.06, right=0.955, top=0.92, bottom=0.12)
+    plt.rcParams.update({"font.family": ["Arial", "DejaVu Sans"], "svg.fonttype": "none"})
+    fig = plt.figure(figsize=(7, 2.9))                    # double-column width
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.0, 1.55], wspace=0.22,
+                          left=0.08, right=0.95, top=0.92, bottom=0.14)
     draw_panelE(fig, gs[0, 0], gs[0, 1])
     for ext in ("png", "svg"):
-        fig.savefig(PLOTS / f"fig3E_showcase.{ext}", dpi=150, bbox_inches="tight")
+        fig.savefig(PLOTS / f"fig3E_showcase.{ext}", dpi=300, bbox_inches="tight")
     print("wrote fig3E_showcase")
 
 
