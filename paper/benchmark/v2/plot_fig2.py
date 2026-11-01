@@ -39,8 +39,8 @@ SOLVERS = {                                        # name: (label, colour, marke
 COMPONENTS = {1: "1 Component", 2: "2 Components", 3: "3 Components"}
 
 plt.rcParams.update({
-    "font.family": ["Arial", "DejaVu Sans"], "font.size": 7, "axes.labelsize": 7, "legend.fontsize": 6,
-    "xtick.labelsize": 6.5, "ytick.labelsize": 6.5, "axes.spines.top": False, "axes.spines.right": False,
+    "font.family": ["Arial", "DejaVu Sans"], "font.size": 7, "axes.labelsize": 7, "legend.fontsize": 7,
+    "xtick.labelsize": 7, "ytick.labelsize": 7, "axes.spines.top": False, "axes.spines.right": False,
     "axes.linewidth": 0.6, "axes.edgecolor": MUTED, "xtick.color": MUTED, "ytick.color": MUTED,
     "xtick.labelcolor": INK, "ytick.labelcolor": INK, "svg.fonttype": "none"})
 
@@ -88,7 +88,7 @@ def panel_a(ax) -> None:
             med = s[(s.ncomp == k) & (s.solver == name) & s.single_cell].speedup.median()
             ax.hlines(med, x0 - 0.38, x0 + 0.38, color=INK, lw=1.0, zorder=3)
             ax.text(x0, grp.max() * 1.35, f"{med:.1f}×" if med < 10 else f"{med:.0f}×", ha="center",
-                    va="bottom", fontsize=5.5, zorder=4)
+                    va="bottom", fontsize=7, zorder=4)
     ax.axhline(1, color=MUTED, ls=":", lw=0.7)
     ax.set_yscale("log")
     ax.set_xticks([1, 5, 9], COMPONENTS.values())
@@ -119,8 +119,8 @@ def panel_b(ax, before_fix: bool) -> None:
             ax.scatter(x[~neg], v.adj_var_ratio[~neg], s=7, marker="o", facecolor=col, edgecolor="none",
                        alpha=0.8, zorder=2)
             ax.scatter(x[neg], v.adj_var_ratio[neg], s=9, marker="x", color=col, lw=0.7, alpha=0.9, zorder=2)
-            ax.text(x0, 1.027, f"{neg.sum()}/{len(v)}", ha="center", fontsize=5.5, color=INK)
-    ax.text(-0.6, 1.036, "Inputs with Negative Loadings", fontsize=5.5, color=MUTED)
+            ax.text(x0, 1.027, f"{neg.sum()}/{len(v)}", ha="center", fontsize=7, color=INK)
+    ax.text(-0.6, 1.036, "Inputs with Negative Loadings", fontsize=7, color=MUTED)
     ax.axhline(1, color=MUTED, ls=":", lw=0.7)
     ax.set_xticks([(k - 1) * (n + 1) + (n - 1) / 2 for k in (1, 2, 3)], COMPONENTS.values())
     ax.set(xlim=(-0.8, 3 * (n + 1) - 1.2), ylim=(0.94, 1.045), ylabel="Adjusted Variance / R nsprcomp")
@@ -130,7 +130,7 @@ def panel_b(ax, before_fix: bool) -> None:
         handles.append(plt.Line2D([], [], ls="none", marker="x", ms=4, color=MUTED, label="Fit with Negative Loadings"))
         ax.legend(handles=handles, frameon=False, loc="lower left", handletextpad=0.3)
     else:
-        ax.set_title("nnPCApy, 47 Inputs", loc="left", fontsize=6.5, color=MUTED)
+        ax.set_title("nnPCApy, 47 Inputs", loc="left", fontsize=7, color=MUTED)
 
 
 def panel_c(axes) -> None:
@@ -141,7 +141,7 @@ def panel_c(axes) -> None:
             s = d[(d.solver == name) & (d.ncomp == k)].sort_values("n_cols")
             ax.plot(s.n_cols, s.t_med_s, marker=mk, ms=3, lw=1.1, color=col, label=lab)
         ax.set(xscale="log", yscale="log", xlabel="Genes (5,000 Cells)")
-        ax.set_title(COMPONENTS[k], loc="left", fontsize=6.5, color=MUTED)
+        ax.set_title(COMPONENTS[k], loc="left", fontsize=7, color=MUTED)
     axes[0].set_ylabel("Time per Fit (s)")
     axes[1].tick_params(labelleft=False)
 
@@ -156,12 +156,12 @@ def panel_d(axes, before_fix: bool) -> None:
         ax.bar(range(len(order)), v, color=[SOLVERS[n][1] for n in order], width=0.75)
         for i, x in enumerate(v):
             ax.text(i, x * 1.15, fmt.format(x) if x >= 100 else f"{x:.0f}" if x >= 10 else f"{x:.1f}",
-                    ha="center", va="bottom", fontsize=5.5)
+                    ha="center", va="bottom", fontsize=7, rotation=90)
         ax.set_yscale("log")
         ax.set_ylabel(ylab)
         ax.set_xticks(range(len(order)), [])
-        ax.set_ylim(top=v.max() * 6)
-    axes[0].set_title("Whole Transcriptome, 16 Components", loc="left", fontsize=6.5, color=MUTED)
+        ax.set_ylim(top=v.max() * 20)
+    axes[0].set_title("Whole Transcriptome, 16 Components", loc="left", fontsize=7, color=MUTED)
 
 
 def figure(name: str, before_fix: bool) -> None:

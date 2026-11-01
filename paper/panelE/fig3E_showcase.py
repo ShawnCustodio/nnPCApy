@@ -42,7 +42,7 @@ DS = "A549_TGFB1"
 TIME_ORDER = ["0d", "8h", "1d", "3d", "7d"]
 CAP = 130
 E1_COL, PC1_COL, PC2_COL = "#1f6feb", "#0f8a7e", "#c8811a"
-FS_LAB, FS_TICK, FS_GENE = 7, 6.5, 5.5
+FS_LAB, FS_TICK, FS_GENE = 7, 7, 7
 
 
 def parse_gmt(p):
@@ -196,7 +196,7 @@ def _heatmap(fig, spec, X, g2i, lib, ind, pdf, times, present, cmap_t, groups):
     for sp in ax_hm.spines.values():
         sp.set_visible(False)
     cb = fig.colorbar(im, cax=ax_cb); cb.set_label("Expression (Z-Score)", fontsize=FS_TICK)
-    cb.ax.tick_params(labelsize=FS_TICK - 1)
+    cb.ax.tick_params(labelsize=FS_TICK)
     return ax_ts
 
 
