@@ -1,9 +1,9 @@
 """Fig 2 from the benchmark v2 runs: where the speed comes from, accuracy against R, the
 gene-count sweep and the whole-transcriptome fit.
 
-Two versions: plots/fig2 (the manuscript figure, the current package only) and plots/figR2 (the
-response-letter figure, which adds the solver before the non-negativity fix to the accuracy and
-whole-transcriptome panels). Reads results/<run>/summary_cells.csv (written by analyze.py).
+Two versions: plots/fig2 (the current package only) and plots/figR2 (the same panels with the
+solver before the non-negativity fix added to the accuracy and whole-transcriptome panels).
+Reads results/<run>/summary_cells.csv (written by analyze.py).
 All fits use 1 thread. Speedups are relative to R nsprcomp on the same input and k; for the
 real-data inputs each cell's median time is the median over the three repeat runs. RcppML is
 reported in a supplementary table, not here.
@@ -186,8 +186,8 @@ def figure(name: str, before_fix: bool) -> None:
 
 
 def main() -> None:
-    figure("fig2", before_fix=False)     # manuscript
-    figure("figR2", before_fix=True)     # response letter
+    figure("fig2", before_fix=False)
+    figure("figR2", before_fix=True)     # with the solver before the fix
 
 
 if __name__ == "__main__":

@@ -45,10 +45,14 @@ what Fig S2 is about. nsprcomp marks a component it can prove is a weaker soluti
 python synth_order.py              # B = 1000, S = 200; about 2 min
 python pc_order.py                 # B = 1000, S = 200; about 20 min
 python time_steps.py               # B = 2000, S = 200; a few minutes
-python c2_screen.py --B 300 --workers 2    # hours: ~2-4 min per draw per worker
+python c2_screen.py --B 300 --workers 2    # about 5 h: 1-2 min per draw per worker
 python restart_scan.py             # S = 50; about 70 min
 python dense_pc1.py                # about 5 min
 python plot_fig3.py                # seconds; reads results/
 ```
 
 Each script takes `--B` and `--S` (or `--limit`) for a quick check.
+
+`c2_screen.py` is the only long run. It saves one file per draw and resumes where it stopped;
+each worker needs about 0.4 GB. On a laptop, keep the machine from sleeping for the length of
+the run. `plot_fig3.py` redraws every figure from `results/` without rerunning anything.

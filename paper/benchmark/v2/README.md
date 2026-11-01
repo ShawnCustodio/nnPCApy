@@ -48,6 +48,7 @@ python run.py --suite dsweep --ncomps 1,3
 python run.py --suite pbmc3k --ncomps 16 --solvers nnpcapy,rcppml --threads 1,2 --run-id pbmc3k
 python run.py --suite pbmc3k --ncomps 16 --solvers nsprcomp --max-reps 0 --run-id pbmc3k
 python analyze.py <run-id>                  # run-id is printed by run.py
+python plot_fig2.py                         # Fig 2 (fig2, figR2) from the run folders; seconds
 ```
 
 `run.py` resumes an interrupted run when given the same `--run-id`, which also lets one run
@@ -65,6 +66,21 @@ and nsprcomp as a dense matrix, whose copy counts towards the fit's memory.
 On a laptop: plug in to AC power (recorded in `env.json`), use the best-performance power
 mode, and close other heavy programs. Solvers are run in a shuffled order per input so
 that slow drift affects all of them alike.
+
+## Run times
+
+Measured on the laptop used for the paper (Intel i7-1165G7, AC power, 1 thread per fit), as
+the sum of the worker processes' wall times:
+
+| run | figure | time |
+|---|---|---|
+| `--suite realdata` (47 inputs x ncomp 1-3, all solvers) | Fig 2A-B | about 35 min per repeat; Fig 2 uses 3 repeats |
+| `--suite dsweep --ncomps 1,3` | Fig 2C | about 35 min |
+| `--suite pbmc3k` (both commands above) | Fig 2D | about 30 min; one R nsprcomp fit alone takes 17 min and about 2 GB |
+| `plot_fig2.py` | Fig 2 | seconds |
+
+R nsprcomp takes most of each suite's time. Redrawing the figures needs only the run folders
+in `results/`, not a rerun.
 
 ## Method details
 
