@@ -13,7 +13,8 @@ the three arms of resample.py (cells resampled without strata) and per draw reco
 The result describes this simulation and matching rule, not nearly tied nnPCA solutions
 in general.
 
-Writes results/synth_order.csv.
+Writes results/synth_order.csv, and results/synth_order_loadings.npz with the first extracted
+component's loadings in every draw (key r<ratio>_<arm>, draws x genes) and the planted w1, w2.
 
 Usage:
     python synth_order.py                 # B = 1000 resamples, S = 200 seeds
@@ -51,21 +52,24 @@ def main() -> None:
     a = ap.parse_args()
 
     rs.RESULTS.mkdir(exist_ok=True)
-    out = []
+    out, loads = [], {}
     for ratio in RATIOS:
         X, w1, w2 = planted(ratio, np.random.default_rng(DATA_SEED))
         for arm in rs.ARMS:
             nb = a.S if arm == "seed" else a.B
             top, rat = np.zeros(nb), np.zeros(nb)
+            first = np.zeros((nb, D), np.float32)
             for b, rows, start in rs.draws(arm, N, nb, a.seed):
                 Xb = X[rows] - X[rows].mean(axis=0)
                 W = rs.fit(Xb, 2, start(0))["rotation"]
                 if W.shape[1] < 2:
                     W = np.pad(W, ((0, 0), (0, 2 - W.shape[1])))
+                first[b] = W[:, 0]
                 top[b] = float(rs.abs_cos(W[:, 0], w1) >= rs.abs_cos(W[:, 0], w2))
                 i1, i2 = rs.match2(W, np.column_stack([w1, w2]))
                 raw = (Xb @ W).std(axis=0, ddof=1)
                 rat[b] = raw[i2] ** 2 / raw[i1] ** 2 if raw[i1] > 0 else np.nan
+            loads[f"r{ratio:g}_{arm}"] = first
             p = float(top.mean())
             lo, hi = rs.ci(rat[np.isfinite(rat)])
             out.append({"ratio": ratio, "arm": arm, "draws": nb, "p_top_is_w1": p,
@@ -74,6 +78,7 @@ def main() -> None:
             print(f"  s1/s2={ratio:.2f} {arm:>8}: P(top is w1)={p:.3f}  var ratio {np.nanmedian(rat):.3f} "
                   f"[{lo:.3f}, {hi:.3f}]", flush=True)
     pd.DataFrame(out).to_csv(rs.RESULTS / "synth_order.csv", index=False)
+    np.savez(rs.RESULTS / "synth_order_loadings.npz", w1=w1, w2=w2, **loads)   # w1, w2 are the same for every ratio
 
 
 if __name__ == "__main__":
