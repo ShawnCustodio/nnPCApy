@@ -2,12 +2,14 @@
 Panel E — visualization showcase on the FULL A549 TGF-β single-cell matrix
 (Cook 2020), induction time points only (0d, 8h, 1d, 3d, 7d).
  left  : per-cell nnPCA E-vs-M scatter (standardized scores) — thresholded per-time
-         KDE density fill, low-alpha points, per-time centroids with 95% bootstrap
-         CI crosses (full-refit bootstrap).
+         KDE density fill, low-alpha points, per-time means with the 95% intervals of
+         the Fig 3C bootstrap (paper/fig3/time_steps.py: cells resampled within time
+         point x culture, new random starts; run it first).
  right : heatmap of the top-5 E-PC1, M-PC1 and M-PC2 loading genes across cells
          grouped by ordered time point, z-scored total-library log-CPM expression,
          with a time-point colour strip and a PC-group row annotation.
-Scoring: total-library log-CPM + per-gene z-score + nsprcomp; scores standardized.
+Scoring as in paper/fig3: total-library log-CPM + per-gene z-score + nsprcomp with 50
+seeded restarts (the seeds of time_steps.py, so the means match Fig 3C); scores standardized.
 No sign is set from pseudotime: the loadings are non-negative, so each score already
 increases with its genes' expression.  draw_panelE() is reused by fig3_combined.py.
 """
@@ -26,6 +28,8 @@ from scipy.stats import gaussian_kde
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sc_full  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "fig3"))
+import resample as rs  # noqa: E402
 
 REPO = next(_p for _p in Path(__file__).resolve().parents if (_p / "pyproject.toml").exists())
 DATA = REPO / "data"
@@ -36,7 +40,7 @@ RES.mkdir(parents=True, exist_ok=True)
 PLOTS.mkdir(parents=True, exist_ok=True)
 DS = "A549_TGFB1"
 TIME_ORDER = ["0d", "8h", "1d", "3d", "7d"]
-CAP, B_BOOT = 130, 300
+CAP = 130
 E1_COL, PC1_COL, PC2_COL = "#1f6feb", "#0f8a7e", "#c8811a"
 FS_LAB, FS_TICK, FS_GENE = 11, 9.5, 8
 
@@ -56,51 +60,40 @@ def _load():
     return X, g2i, lib, meta, ind
 
 
-def _score(X, lib, cell_idx, gidx, ncomp):
-    r = sc_full.nnpca(X[np.ix_(cell_idx, gidx)], lib[cell_idx], ncomp)
+def _score(X, lib, cell_idx, gidx, ncomp, k):
+    """Standardized first score and loadings, fitted as in paper/fig3/time_steps.py (same seeds)."""
+    r = rs.fit(rs.zscores(X[np.ix_(cell_idx, gidx)], lib[cell_idx]), ncomp,
+               np.random.SeedSequence([rs.SEED, 0, k]), rs.REF_NRESTART)
     return sc_full.zc(r["x"][:, 0]), r["rotation"]
 
 
 def _prepare():
     X, g2i, lib, meta, ind = _load()
-    pt = meta["Pseudotime"].values[ind]
     times = meta["Time"].astype(str).values[ind]
     Eg = [g for g in pd.read_csv(DATA / "Panchy_et_al_E_signature.csv")["GeneName"] if g in g2i]
     Mg = [g for g in pd.read_csv(DATA / "Panchy_et_al_M_signature.csv")["GeneName"] if g in g2i]
     Eidx = np.array([g2i[g] for g in Eg]); Midx = np.array([g2i[g] for g in Mg])
-    sE, Erot = _score(X, lib, ind, Eidx, 1)
-    sM, Mrot = _score(X, lib, ind, Midx, 2)
+    sE, Erot = _score(X, lib, ind, Eidx, 1, 0)
+    sM, Mrot = _score(X, lib, ind, Midx, 2, 1)
     e1 = pd.Series(np.abs(Erot[:, 0]), index=Eg).nlargest(5).index.tolist()
     pc1 = pd.Series(np.abs(Mrot[:, 0]), index=Mg).nlargest(5).index.tolist()
     pc2 = [g for g in pd.Series(np.abs(Mrot[:, 1]), index=Mg).nlargest(9).index if g not in pc1][:5]
     pdf = pd.DataFrame({"Time": times, "Escore": sE, "Mscore": sM}, index=np.arange(len(ind)))
-    return X, g2i, lib, ind, pt, times, pdf, e1, pc1, pc2, Eidx, Midx
+    return X, g2i, lib, ind, times, pdf, e1, pc1, pc2
 
 
-def _bootstrap_ci(X, lib, ind, pt, times, Eidx, Midx):
-    cache = RES / f"em_scatter_ci_full_{DS}.csv"
-    if cache.exists():
-        return pd.read_csv(cache).set_index("time")
-    order = [t for t in TIME_ORDER if t in set(times)]
-    clusters = [np.where(times == t)[0] for t in order]
-    sizes = [len(c) for c in clusters]
-    dE = {t: [] for t in order}; dM = {t: [] for t in order}
-    for b in range(B_BOOT):
-        rng = np.random.default_rng(11 + b)
-        blocks = [c[rng.integers(0, len(c), len(c))] for c in clusters]
-        idx = np.concatenate(blocks); cell = ind[idx]; ptb = pt[idx]
-        sE, _ = _score(X, lib, cell, Eidx, 1, False, ptb)
-        sM, _ = _score(X, lib, cell, Midx, 1, True, ptb)
-        off = 0
-        for t, nn in zip(order, sizes):
-            sl = slice(off, off + nn); off += nn
-            dE[t].append(sE[sl].mean()); dM[t].append(sM[sl].mean())
-    rows = []
-    for t in order:
-        e, m = np.array(dE[t]), np.array(dM[t])
-        rows.append({"time": t, "E_mean": e.mean(), "E_lo": np.percentile(e, 2.5), "E_hi": np.percentile(e, 97.5),
-                     "M_mean": m.mean(), "M_lo": np.percentile(m, 2.5), "M_hi": np.percentile(m, 97.5)})
-    out = pd.DataFrame(rows).set_index("time"); out.to_csv(cache)
+def _time_ci(pdf):
+    """Per-time means and 95% intervals from the Fig 3C bootstrap (time_steps.py, "both" arm)."""
+    path = rs.RESULTS / "time_means.csv"
+    if not path.exists():
+        raise FileNotFoundError(f"{path} not found: run paper/fig3/time_steps.py first")
+    m = pd.read_csv(path).query("arm == 'both'")
+    out = pd.DataFrame({f"{s}_{c}": m[m.score == s].set_index("time")[col]
+                        for s in ("E", "M") for c, col in (("mean", "point"), ("lo", "ci_lo"), ("hi", "ci_hi"))})
+    centroids = pdf.groupby("Time")[["Escore", "Mscore"]].mean()
+    gap = np.abs(centroids.to_numpy() - out.loc[centroids.index, ["E_mean", "M_mean"]].to_numpy()).max()
+    if gap > 1e-6:
+        raise ValueError(f"scores differ from time_steps.py's (max gap {gap:.2g}): rerun it with the current code")
     return out
 
 
@@ -207,8 +200,8 @@ def _heatmap(fig, spec, X, g2i, lib, ind, pdf, times, present, cmap_t, groups):
 
 
 def draw_panelE(fig, spec_scatter, spec_heatmap):
-    X, g2i, lib, ind, pt, times, pdf, e1, pc1, pc2, Eidx, Midx = _prepare()
-    ci = _bootstrap_ci(X, lib, ind, pt, times, Eidx, Midx)
+    X, g2i, lib, ind, times, pdf, e1, pc1, pc2 = _prepare()
+    ci = _time_ci(pdf)
     present = [t for t in TIME_ORDER if t in set(times)]
     cmap_t = {t: plt.cm.viridis(v) for t, v in zip(present, np.linspace(0.05, 0.95, len(present)))}
     groups = [("E PC1", e1, E1_COL), ("M PC1", pc1, PC1_COL), ("M PC2", pc2, PC2_COL)]
