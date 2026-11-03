@@ -48,7 +48,7 @@ python run.py --suite dsweep --ncomps 1,3
 python run.py --suite pbmc3k --ncomps 16 --solvers nnpcapy,rcppml --threads 1,2 --run-id pbmc3k
 python run.py --suite pbmc3k --ncomps 16 --solvers nsprcomp --max-reps 0 --run-id pbmc3k
 python analyze.py <run-id>                  # run-id is printed by run.py
-python plot_fig2.py                         # Fig 2 (fig2, figR2) from the run folders; seconds
+python plot_fig2.py                         # Fig 2 (fig2, figR1) from the run folders; seconds
 ```
 
 `run.py` resumes an interrupted run when given the same `--run-id`, which also lets one run

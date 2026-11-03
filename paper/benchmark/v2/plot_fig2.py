@@ -1,7 +1,7 @@
 """Fig 2 from the benchmark v2 runs: where the speed comes from, accuracy against R, the
 gene-count sweep and the whole-transcriptome fit.
 
-Two versions: plots/fig2 (the current package only) and plots/figR2 (the same panels with the
+Two versions: plots/fig2 (the current package only) and plots/figR1 (the same panels with the
 solver before the non-negativity fix added to the accuracy and whole-transcriptome panels).
 Reads results/<run>/summary_cells.csv (written by analyze.py).
 All fits use 1 thread. Speedups are relative to R nsprcomp on the same input and k; for the
@@ -187,7 +187,7 @@ def figure(name: str, before_fix: bool) -> None:
 
 def main() -> None:
     figure("fig2", before_fix=False)
-    figure("figR2", before_fix=True)     # with the solver before the fix
+    figure("figR1", before_fix=True)     # with the solver before the fix
 
 
 if __name__ == "__main__":
