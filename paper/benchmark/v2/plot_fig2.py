@@ -33,7 +33,7 @@ SOLVERS = {                                        # name: (label, colour, marke
     "nsprcomp": ("R nsprcomp", GREY, "D"),
     "nsprcomp_crossprod": ("R nsprcomp + crossprod", AQUA, "^"),
     "V2": ("V2 (R Algorithm in NumPy)", ORANGE, "s"),
-    "nnpcapy_old": ("nnPCApy before Fix (Dense)", MAGENTA, "v"),
+    "nnpcapy_old": ("nnPCApy 0.1.0", MAGENTA, "v"),
     "nnpcapy": ("nnPCApy", BLUE, "o"),
 }
 COMPONENTS = {1: "1 Component", 2: "2 Components", 3: "3 Components"}
