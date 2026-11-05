@@ -1,4 +1,4 @@
-"""PC1/PC2 order in a simulation with a known variance ratio (Fig 3A).
+"""PC1/PC2 order in a simulation with a known ratio of component SDs (Fig 3A).
 
 Two non-negative components with disjoint supports (20 genes each, N = 1000 cells,
 D = 40) are planted with score sd ratio s1/s2 and Gaussian noise. As s1/s2 approaches 1

@@ -92,7 +92,7 @@ def panel_a(ax) -> None:
                     capsize=0, label=lab)
     ax.axhline(0.5, color=MUTED, ls=":", lw=0.8)
     ax.invert_xaxis()
-    ax.set(xlabel="Planted Variance Ratio", ylim=(0.4, 1.04),
+    ax.set(xlabel="Planted SD Ratio", ylim=(0.4, 1.04),
            ylabel="Share of Fits Whose First\nComponent Is the Larger One")
     ax.legend(frameon=False, loc="center left", bbox_to_anchor=(0.0, 0.6), handlelength=1.6)
 
@@ -109,7 +109,7 @@ def panel_a_examples(axes) -> None:
         ax.set_xticks([n1 / 2 - 0.5, n1 + (w.shape[1] - n1) / 2 - 0.5], ["Larger", "Smaller"])
         ax.tick_params(axis="x", length=0)
         ax.set_yticks([])
-        ax.set_title(f"Variance Ratio {ratio:.1f}", loc="left")
+        ax.set_title(f"SD Ratio {ratio:.1f}", loc="left")
         ax.set_xlabel("Planted Component's Genes")
         for sp in ax.spines.values():
             sp.set_visible(False)
