@@ -40,7 +40,7 @@ what Fig S2 is about. nsprcomp marks a component it can prove is a weaker soluti
 | `restart_scan.py` | Methods (restarts), Fig S2 | `restart_scan.csv`, `restart_scan_summary.csv`, `restart_curve_trans_golgi.csv` |
 | `dense_pc1.py` | Supplementary (nnPCA vs dense PC1) | `dense_pc1.csv` |
 | `bootstrap_time.py` | Methods (run times of Fig 3C and 3D) | `bootstrap_time.csv`, inputs for R in `bootstrap_time/` |
-| `plot_fig3.py` | draws Fig 3A–D, Fig S2, nnPCA vs dense PC1 | `plots/` (png and svg, not tracked) |
+| `plot_fig3.py` | draws Fig 3A–D, Fig S2, nnPCA vs dense PC1, figR2 | `plots/` (png and svg, not tracked) |
 
 ```
 python synth_order.py              # B = 1000, S = 200; about 2 min

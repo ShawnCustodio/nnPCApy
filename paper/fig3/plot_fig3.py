@@ -1,4 +1,5 @@
-"""Figures from the Fig 3 analyses: Fig 3A-D, Fig S2 and nnPCA vs dense PC1 (supplementary).
+"""Figures from the Fig 3 analyses: Fig 3A-D, Fig S2, nnPCA vs dense PC1 (supplementary) and figR2
+(variation from random starts against variation from resampling cells).
 
 Reads results/ (written by synth_order.py, pc_order.py, time_steps.py, c2_screen.py,
 restart_scan.py and dense_pc1.py) and writes png and svg to plots/. The former panel E is a
@@ -256,10 +257,63 @@ def fig_dense() -> None:
     save(fig, "fig_dense_pc1")
 
 
+def fig_r2() -> None:
+    """A, B: component order and two-component span in the three arms (pc_order.py); C: the widest
+    Fig 3D intervals, resampling against missed optima on the full data (c2_screen.py, restart_scan.py)."""
+    s = pd.read_csv(rs.RESULTS / "pc_order_summary.csv")
+    sets = list(dict.fromkeys(s.gene_set))
+    n = s.drop_duplicates("gene_set").set_index("gene_set").n_genes
+    y = np.arange(len(sets))[::-1]
+    fig = plt.figure(figsize=(7, 4.2))
+    g = fig.add_gridspec(1, 2, wspace=0.2, left=0.35, right=0.72, top=0.86, bottom=0.12)
+    a, b = fig.add_subplot(g[0]), fig.add_subplot(g[1])
+    off = {"seed": 0.24, "sampling": 0.0, "both": -0.24}
+    for arm, (col, mk, lab) in ARMS.items():
+        d = s[s.arm == arm].set_index("gene_set").reindex(sets)
+        a.errorbar(d.p_order_kept, y + off[arm], xerr=1.96 * d.p_order_kept_mcse, ls="none", marker=mk, ms=3,
+                   color=col, elinewidth=0.8, capsize=0, label=lab)
+        b.hlines(y + off[arm], d.angle_lo, d.angle_hi, color=col, lw=0.8)
+        b.plot(d.angle_med, y + off[arm], ls="none", marker=mk, ms=3, color=col)
+    a.set_yticks(y, [f"{wrap(g_, 40)} ({n[g_]})" for g_ in sets])
+    for ax in (a, b):
+        ax.set_ylim(-0.6, len(sets) - 0.4)
+        for yy in y[::2]:
+            ax.axhspan(yy - 0.5, yy + 0.5, color="#f2f1ee", lw=0, zorder=0)
+    a.axvline(1, color=MUTED, lw=0.6, ls=":")
+    a.set(xlim=(0.45, 1.03), xlabel="Share of Draws Keeping\nthe Component Order")
+    b.set_xscale("log")
+    b.set_xticks([1, 3, 10, 30, 90], ["1", "3", "10", "30", "90"])
+    b.minorticks_off()
+    b.tick_params(axis="y", left=False, labelleft=False)
+    b.set(xlim=(0.3, 95), xlabel="Largest Angle to the Full-Data\nTwo-Component Span (°)")
+
+    c2 = pd.read_csv(rs.RESULTS / "c2_screen.csv")
+    scan = pd.read_csv(rs.RESULTS / "restart_scan.csv")
+    draw_dir = next((rs.RESULTS / "c2_screen").glob(f"{len(c2)}sets_seed*"))
+    point = pd.read_csv(draw_dir / "point.csv")
+    R = np.stack([np.load(f) for f in sorted(draw_dir.glob("b*.npy"))])          # draws x sets
+    col_of = {g_: i for i, g_ in enumerate(point.gene_set)}
+    wide = c2[(c2.r_hi - c2.r_lo) > 0.5].merge(scan[["gene_set", "p_miss_20"]], on="gene_set")
+    far = [float(np.mean(np.abs(R[:, col_of[g_]] - point.r_point[col_of[g_]]) > 0.1)) for g_ in wide.gene_set]
+    c = fig.add_subplot(fig.add_gridspec(1, 1, left=0.83, right=0.995, top=0.80, bottom=0.40)[0])
+    c.axline((0, 0), slope=1, color=MUTED, lw=0.6, ls=":")
+    c.scatter(wide.p_miss_20, far, s=8, color=BLUE, alpha=0.6, lw=0)
+    c.set(xlim=(-0.02, 0.5), ylim=(-0.02, 1.0), xlabel="Full-Data Fits Missing the\nBest Solution (20 Restarts)",
+          ylabel="Resamples with r More Than\n0.1 from Its Full-Data Value")
+    c.set_title(f"{len(wide)} Fig 3D Sets with Intervals\nWider than 0.5", loc="left", color=MUTED)
+    handles = [Line2D([], [], ls="none", marker=mk, ms=3.5, color=col, label=lab) for col, mk, lab in ARMS.values()]
+    handles.append(Line2D([], [], color=INK, lw=0.8, label="Median, 95% Interval"))
+    fig.legend(handles=handles, frameon=False, loc="upper center", ncol=2, bbox_to_anchor=(0.53, 1.0))
+    for ax, s_, dx in ((a, "A", -0.05), (b, "B", -0.05), (c, "C", -0.55)):
+        letter(ax, s_, dx=dx, dy=1.01)
+    save(fig, "figR2")
+
+
 def main() -> None:
     fig3()
     fig_s2()
     fig_dense()
+    fig_r2()
 
 
 if __name__ == "__main__":
