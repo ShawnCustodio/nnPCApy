@@ -79,6 +79,7 @@ Thumbs.db
 /paper/benchmark/v2/*
 !/paper/benchmark/v2/*.py
 !/paper/benchmark/v2/worker_r.R
+!/paper/benchmark/v2/second_seed_r.R
 !/paper/benchmark/v2/README.md
 
 /paper/panelE/*

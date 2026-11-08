@@ -48,6 +48,8 @@ python run.py --suite dsweep --ncomps 1,3
 python run.py --suite pbmc3k --ncomps 16 --solvers nnpcapy,rcppml --threads 1,2 --run-id pbmc3k
 python run.py --suite pbmc3k --ncomps 16 --solvers nsprcomp --max-reps 0 --run-id pbmc3k
 python analyze.py <run-id>                  # run-id is printed by run.py
+python second_seed.py realdata_89c9f66_r1 --old-run realdata_head3b31cf9_t1_corder
+                                            # R refit with a second seed; Table S1B; about 2 min
 python plot_fig2.py                         # Fig 2 (fig2, figR1) from the run folders; seconds
 ```
 
@@ -78,6 +80,7 @@ the sum of the worker processes' wall times:
 | `--suite dsweep --ncomps 1,3` | Fig 2C | about 35 min |
 | `--suite pbmc3k` (both commands above) | Fig 2D | about 30 min; one R nsprcomp fit alone takes 17 min and about 2 GB |
 | `plot_fig2.py` | Fig 2 | seconds |
+| `second_seed.py` (runs `second_seed_r.R`) | Supplementary Table S1B | about 2 min (141 R fits) |
 
 R nsprcomp takes most of each suite's time. Redrawing the figures needs only the run folders
 in `results/`, not a rerun.
