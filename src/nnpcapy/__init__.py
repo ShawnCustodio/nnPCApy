@@ -3,4 +3,4 @@
 from .nsprcomp import nsprcomp
 
 __all__ = ["nsprcomp"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

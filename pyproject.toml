@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name            = "nnpcapy"
-version         = "0.1.0"
+version         = "0.2.0"
 description     = "Python port of R's nsprcomp (non-negative sparse PCA), with a timing benchmark vs the original."
 readme          = "README.md"
 license         = { file = "LICENSE" }
@@ -100,22 +100,23 @@ packages = ["src/nnpcapy", "emtscore", "utility"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/nnpcapy",
-    "emtscore",
-    "utility",
+    "/src/nnpcapy",
+    "/emtscore",
+    "/utility",
     # small data only (same set the wheel bundles); large files ship with a checkout
-    "data/Panchy_et_al_E_signature.csv",
-    "data/Panchy_et_al_M_signature.csv",
-    "data/cell_annotation_file.csv",
-    "data/EM_signature.gmt",
-    "data/filtered.c2.gmt",
-    "data/degeneracy_demo.gmt",
-    "data/TianLab_collected_EMT_signatures.gmt",
-    "data/stemsig.tsv",
-    "data/cellular_senescence_sig.tsv",
-    "README.md",
-    "LICENSE",
-    "pyproject.toml",
+    "/data/Panchy_et_al_E_signature.csv",
+    "/data/Panchy_et_al_M_signature.csv",
+    "/data/cell_annotation_file.csv",
+    "/data/EM_signature.gmt",
+    "/data/filtered.c2.gmt",
+    "/data/degeneracy_demo.gmt",
+    "/data/TianLab_collected_EMT_signatures.gmt",
+    "/data/stemsig.tsv",
+    "/data/cellular_senescence_sig.tsv",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/pyproject.toml",
 ]
 
 [tool.pytest.ini_options]
