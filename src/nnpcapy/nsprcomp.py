@@ -249,8 +249,10 @@ def nsprcomp(
 ):
     """Non-negative sparse PCA via expectation-maximization (Sigg & Buhmann, 2008).
 
-    A drop-in Python port of R's ``nsprcomp::nsprcomp()`` -- same defaults,
-    same algorithm (see the module docstring above for the EM summary).
+    A Python port of R's ``nsprcomp::nsprcomp()`` with the same defaults and the same EM.
+    Given the same random starts it reproduces R's loadings, and every component is
+    non-negative. It also accepts sparse input and ``random_state``, and warns about local
+    optima R does not detect (see "Differences from R" in the module docstring).
 
     Parameters
     ----------
