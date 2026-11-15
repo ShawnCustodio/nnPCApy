@@ -123,46 +123,12 @@ run either one top to bottom to see all figures.
 
 ## Run the benchmark
 
-`paper/benchmark/` runs `nsprcomp` 705 times per side (47 matrices x 3
-ncomps x 5 trials) on byte-identical `.npy` inputs, so the comparison
-is implementation-only. (Install with the `benchmark` extra:
-`pip install -e ".[benchmark,dev]"`.)
-
-```
-python paper/benchmark/datasets.py        # build cached inputs, ~5s
-python paper/benchmark/bench_python.py    # ~3 min
-# In RStudio: open paper/benchmark/bench_r.R and click Source, ~8 min
-python paper/benchmark/compare.py         # merge + emit plots
-```
-
-The Python-only speedup ablation behind Fig 2A (no R required) lives in
-`paper/benchmark/synth/`; see `REVIEW.md` section 8 for how to run it.
-
-Latest numbers (shipping Python vs R nsprcomp 0.5.1-2; 47 matrices x 3
-ncomps = 141 calls per side). All figures trace to
-`paper/benchmark/results/summary.csv`.
-
-- Total wall (sum of median call times): R 54.2s vs Python 2.8s -> ~19x.
-- Per-call speedup: median 8.3x, max 49x.
-- Single gene sets (Panchy E/M, 105-184 genes): median ~19x; biggest
-  wins at ncomp >= 2 on the single-cell datasets.
-- Multi gene sets (filtered C2 pathways, 8-93 genes): median ~8x.
-- By data type: single-cell (n ~3.5-13k cells) median ~12x; bulk
-  (n=120 cell lines) ~1.6x -- the covariance optimization needs large n
-  to pay off (see paper/benchmark/README.md and Fig 2A).
-- Memory: Python uses less heap throughout -- ~4-6x on single-cell
-  single gene sets, ~22x on single-cell pathways, ~78x on bulk
-  (median ~26x overall).
-
-Honest framing of the speedup vs R: most of it is NumPy/BLAS
-vectorization; the single algorithmic change beyond R is iterating the
-EM on a precomputed covariance C = X^T X (O(n*d) -> O(d^2) per
-iteration). Parameter defaults and the two-pass renormalization are R's
-own -- reproduced, not novel. (Earlier versions of this file quoted
-intermediate-stage benchmark numbers; those have been corrected.)
-
-Plots are in `paper/benchmark/plots/`. `speedup_single.png` is the most
-informative.
+`paper/benchmark/v2/` re-measures nnPCApy against R `nsprcomp` 0.5.1-2 on 47 inputs
+(k = 1, 2 and 3), one process per fit, with BLAS threads pinned and the peak memory of
+each fit read from the operating system. It also checks every component against R for
+non-negativity and agreement. The full method, requirements, commands and run times are
+in [`paper/benchmark/v2/README.md`](https://github.com/ShawnCustodio/nnPCApy/blob/main/paper/benchmark/v2/README.md).
+The results are reported in the paper. Timings depend on the machine.
 
 ## What's in each subfolder
 
