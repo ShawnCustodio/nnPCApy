@@ -1,6 +1,6 @@
 This is a Python library with a companion manuscript under review.
 
-nnPCApy: a Python library for fast non-negative principal component analysis and gene-set scoring
+nnPCApy: a Python library for non-negative principal component analysis and gene-set scoring
 
 Shawn K Custodio, Zhao Sun, Tian Hong
 
